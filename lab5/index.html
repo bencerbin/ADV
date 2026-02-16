@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D3.js Visualizations</title>
+    
+    <!-- Load D3.js library -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    
+    <!-- Load our custom styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="visualization-container">
+        <h1>Data Visualization with D3.js</h1>
+        <div id="visualization"></div>
+    </div>
+
+    <script>
+
+        const width = 400;
+        const height = 300;
+        const margin = { top: 20, right: 30, bottom: 20, left: 40}
+
+        const svg = d3.select("#visualization")
+            .append("svg")
+              .attr("width", width)
+              .attr("height", height);
+
+          d3.csv("data.csv")
+
+    </script>
+</body>
+</html>

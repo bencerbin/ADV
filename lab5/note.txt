@@ -1,0 +1,62 @@
+// Set up SVG dimensions (same as previous parts)
+const width = 400;
+const height = 300;
+const margin = { top: 20, right: 20, bottom: 30, left: 40 };
+
+// Create SVG element
+const svg = d3.select("#visualization")
+  .append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+// Load and process data
+d3.csv("data.csv").then(data => {
+  // Parse data
+  data.forEach(d => {
+    d.date = new Date(d.date);
+    d.value = +d.value;
+  });
+
+  // Set up scales
+  const x = d3.scaleTime()
+    .range([margin.left, width - margin.right])
+    .domain(d3.extent(data, d => d.date));
+
+  const y = d3.scaleLinear()
+    .range([height - margin.bottom, margin.top])
+    .domain([0, d3.max(data, d => d.value)]);
+
+  // Create line generator
+  const line = d3.line()
+    .x(d => x(d.date))
+    .y(d => y(d.value));
+
+  // Create the line path
+  svg.append("path")
+    .datum(data)
+    .attr("fill", "none")
+    .attr("stroke", "steelblue")
+    .attr("stroke-width", 2)
+    .attr("d", line);
+
+  // Add data points as circles
+  svg.selectAll("circle")
+    .data(data)
+    .enter().append("circle")
+      .attr("cx", d => x(d.date))
+      .attr("cy", d => y(d.value))
+      .attr("r", 4)
+      .attr("fill", "steelblue");
+
+  // Add x-axis
+  svg.append("g")
+    .attr("class", "axis")
+    .attr("transform", `translate(0,${height - margin.bottom})`)
+    .call(d3.axisBottom(x));
+
+  // Add y-axis
+  svg.append("g")
+    .attr("class", "axis")
+    .attr("transform", `translate(${margin.left},0)`)
+    .call(d3.axisLeft(y));
+});
