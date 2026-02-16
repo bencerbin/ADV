@@ -29,7 +29,7 @@ function createSmallMultiples() {
     const container = d3.select('#visualization')
         .append('div')
         .style('display', 'grid')
-        .style('grid-template-columns', 'repeat(auto-fit, minmax(200px, 1fr))')
+        .style('grid-template-columns', 'repeat(auto-fit, minmax(400px, 1fr))')
         .style('gap', '20px')
         .style('padding', '20px');
 
@@ -38,8 +38,8 @@ function createSmallMultiples() {
     const categories = ['A', 'B', 'C', 'D'];
     
     // Dimensions for each small multiple
-    const width = 180;
-    const height = 120;
+    const width = 360;
+    const height = 240;
     const margin = {top: 20, right: 20, bottom: 30, left: 40};
     
     // Create each small multiple

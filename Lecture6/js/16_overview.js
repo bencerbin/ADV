@@ -69,7 +69,7 @@ class OverviewDetailView {
         // Create brush for interaction
         this.brush = d3.brushX()
             .extent([[0, 0], [this.width, this.height.overview]])
-            .on('brush', (event) => this.brushed(event));
+            .on('brush', (event) => this.brushed(event));       //WHAT???? HOW DOES BRUSHED WORK
 
         this.overviewSvg.append('g')
             .attr('class', 'brush')
