@@ -18,54 +18,53 @@
     </div>
 
     <script>
-            // Set up SVG dimensions
-const width = 400;
-const height = 300;
-const margin = { top: 20, right: 20, bottom: 30, left: 40 };
+             console.log(d3.version);
 
-// Create SVG element
-const svg = d3.select("#visualization")
-  .append("svg")
-    .attr("width", width)
-    .attr("height", height);
 
-// Load and process data
-d3.csv("data.csv").then(data => {
-  // Parse data
-  data.forEach(d => {
-    d.value = +d.value;
-  });
+        const width = 400;
+        const height = 300;
+        const margin = { top: 20, right: 30, bottom: 20, left: 40}
 
-  // Set up scales
-  const x = d3.scaleBand()
-    .range([margin.left, width - margin.right])
-    .padding(0.1);
+        const svg = d3.select("#visualization")
+            .append("svg")
+              .attr("width", width)
+              .attr("height", height);
 
-  const y = d3.scaleLinear()
-    .range([height - margin.bottom, margin.top]);
+        d3.csv("data.csv").then(data => {
 
-  x.domain(data.map(d => d.date));
-  y.domain([0, d3.max(data, d => d.value)]);
 
-  // Create bars
-  svg.selectAll("rect")
-    .data(data)
-    .enter().append("rect")
-      .attr("x", d => x(d.date))
-      .attr("y", d => y(d.value))
-      .attr("width", x.bandwidth())
-      .attr("height", d => height - margin.bottom - y(d.value))
-      .attr("fill", "steelblue");
+            data.forEach(d => {
+                d.value = +d.value;
+            })
+        });
 
-  // Add axes
-  svg.append("g")
-    .attr("transform", `translate(0,${height - margin.bottom})`)
-    .call(d3.axisBottom(x));
+        const x = d3.scaleBand()
+            .range([margin.left, width - margin.right])
+            .padding(0.1);
 
-  svg.append("g")
-    .attr("transform", `translate(${margin.left},0)`)
-    .call(d3.axisLeft(y));
-});
+        const y = d3.scaleLinear()
+            .range([height - margin.bottom, margin.top]);
+
+        x.domain(data.map(d => d.date));
+        y.domain([0, d3.max(data, d => d.value)]);
+
+        svg.selectAll("rect")
+            .data(data)
+            .enter().append("rect")
+                .attr("x", d => x(d.date))
+                .attr("y", d => y(d.value))
+                .attr("width", x.bandwidth())
+                .attr("height", d => height - margin.bottom - y(d.value))
+                .attr("fill", "steelblue");
+
+         svg.append("g")
+            .attr("transform", `translate(0,${height - margin.bottom})`)
+            .call(d3.axisBottom(x));
+
+        svg.append("g")
+            .attr("transform", `translate(${margin.left},0)`)
+            .call(d3.axisLeft(y));
+                
     </script>
 </body>
 </html>
