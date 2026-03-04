@@ -1,0 +1,29 @@
+/* Ensure our visualization fills the available space */
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Container for the visualization */
+.visualization-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+}
+
+/* The canvas where our 3D scene will be rendered */
+#visualization {
+    width: 100%;
+    height: 100%;
+}
+
+/* Control panel styling */
+#controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 10px;
+    border-radius: 5px;
+}

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>3D Data Point Selection</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    #detail-panel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 15px;
+      border-radius: 5px;
+      width: 250px;
+      z-index: 10;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      font-family: Arial, sans-serif;
+    }
+    
+    h3 {
+      margin-top: 0;
+      color: #333;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 8px;
+    }
+    
+    #detail-content {
+      font-size: 14px;
+      color: #444;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <!-- Detail Panel for Selected Data Point -->
+  <div id="detail-panel">
+    <h3>Data Point Details</h3>
+    <pre id="detail-content">Click a data point to see details</pre>
+  </div>
+
+  <a-scene>
+    <!-- Data Point Selection Component -->
+    <script>
+      // Define global state to track selected points
+      window.dataPointState = {
+        selectedPoint: null
+      };
+      
+      AFRAME.registerComponent('data-point-selection', {
+        schema: {
+          selectedColor: { type: 'color', default: '#FFFF00' },
+          defaultColor: { type: 'color', default: '#3080C0' }
+        },
+        
+        init: function() {
+          // Store original color
+          this.originalColor = this.el.getAttribute('color') || this.data.defaultColor;
+          
+          // Make clickable
+          this.el.setAttribute('cursor-listener', '');
+          
+          // Add multiple event listeners for different input methods
+          this.el.addEventListener('click', this.onClick.bind(this));
+          this.el.addEventListener('mousedown', this.onClick.bind(this));
+          this.el.addEventListener('mouseenter', this.onHover.bind(this));
+          this.el.addEventListener('mouseleave', this.onLeave.bind(this));
+          
+          // Store reference to self
+          this.el.dataPointComponent = this;
+        },
+        
+        onClick: function(evt) {
+          console.log('Data point clicked:', this.el.id);
+          evt.stopPropagation();
+          
+          const pointData = this.el.getAttribute('data-point');
+          const detailContent = document.getElementById('detail-content');
+          
+          // Reset previously selected point if any
+          if (window.dataPointState.selectedPoint && 
+              window.dataPointState.selectedPoint !== this.el) {
+            const prevPoint = window.dataPointState.selectedPoint;
+            const prevColor = prevPoint.dataPointComponent.originalColor;
+            prevPoint.setAttribute('color', prevColor);
+          }
+          
+          // Update global state
+          window.dataPointState.selectedPoint = this.el;
+          
+          // Highlight current point
+          this.el.setAttribute('color', this.data.selectedColor);
+          
+          // Update detail panel
+          if (pointData) {
+            try {
+              detailContent.textContent = JSON.stringify(
+                JSON.parse(pointData),
+                null,
+                2
+              );
+            } catch (e) {
+              detailContent.textContent = pointData;
+            }
+          }
+        },
+        
+        onHover: function() {
+          // Only change color if not selected
+          if (window.dataPointState.selectedPoint !== this.el) {
+            this.el.setAttribute('color', '#4090D0'); // Lighter blue for hover
+          }
+        },
+        
+        onLeave: function() {
+          // Reset to original color only if not selected
+          if (window.dataPointState.selectedPoint !== this.el) {
+            this.el.setAttribute('color', this.originalColor);
+          }
+        }
+      });
+      
+      // Cursor component for better interaction
+      AFRAME.registerComponent('cursor-listener', {
+        schema: {},
+        init: function() {
+          this.el.setAttribute('class', 'clickable');
+        }
+      });
+    </script>
+
+    <!-- Camera and Controls -->
+    <a-entity position="0 1.6 5">
+      <a-camera>
+        <a-cursor raycaster="objects: .clickable"></a-cursor>
+      </a-camera>
+    </a-entity>
+    
+    <!-- Ground -->
+    <a-entity position="0 0 0">
+      <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#CCCCCC"></a-plane>
+    </a-entity>
+    
+    <!-- Example Data Points -->
+    <a-entity>
+      <!-- Sales Data Points -->
+      <a-sphere
+        id="sales-point-1"
+        position="-2 1 -3"
+        radius="0.3"
+        color="#3080C0"
+        data-point-selection
+        data-point='{"category":"Electronics","sales":1250,"region":"North"}'
+      ></a-sphere>
+      
+      <a-sphere
+        id="sales-point-2"
+        position="0 2 -3"
+        radius="0.3"
+        color="#3080C0"
+        data-point-selection
+        data-point='{"category":"Clothing","sales":950,"region":"South"}'
+      ></a-sphere>
+      
+      <a-sphere
+        id="sales-point-3"
+        position="2 1.5 -3"
+        radius="0.3"
+        color="#3080C0"
+        data-point-selection
+        data-point='{"category":"Electronics","sales":1100,"region":"West"}'
+      ></a-sphere>
+    </a-entity>
+  </a-scene>
+</body>
+</html>

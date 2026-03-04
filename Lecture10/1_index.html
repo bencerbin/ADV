@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Data Visualization with A-Frame</title>
+    <link rel="stylesheet" href="style/style.css">
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+    <script src="js/1_app.js"></script>
+</head>
+<body>
+    <div id="ui-overlay">
+        <h1>3D Data Visualization</h1>
+        <div id="controls">
+            <button onclick="generateNewData()">Generate New Data</button>
+            <button onclick="toggleRotation()">Toggle Rotation</button>
+        </div>
+    </div>
+
+    <a-scene>
+        <!-- Camera -->
+        <a-entity position="0 2 50">
+            <a-camera look-controls wasd-controls></a-camera>
+        </a-entity>
+
+        <!-- Lighting -->
+        <a-light type="ambient" color="#888"></a-light>
+        <a-light type="directional" position="0 1 1" color="#FFF" intensity="0.8"></a-light>
+
+        <!-- Container for data visualization -->
+        <a-entity
+            id="visualization"
+            position="0 0 -2"
+            data-plot="width: 5; height: 5; depth: 5"
+        ></a-entity>
+
+        <!-- Environment -->
+        <a-sky color="#ffe9a6"></a-sky>
+        <a-grid color="#444" rotation="-90 0 0"></a-grid>
+    </a-scene>
+</body>
+</html>

@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>3D Hierarchical Data Visualization</title>
+  <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    
+    .overlay {
+      position: fixed;
+      bottom: 20px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      z-index: 100;
+      pointer-events: none;
+    }
+    
+    .controls {
+      background: rgba(0, 0, 0, 0.7);
+      border-radius: 10px;
+      padding: 10px 20px;
+      color: white;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      pointer-events: auto;
+      text-align: center;
+      max-width: 90%;
+    }
+    
+    .button-container {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    button {
+      background: #4263EB;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 8px 15px;
+      font-size: 14px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    
+    .permission-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .permission-overlay h2 {
+      font-size: 24px;
+      margin-bottom: 20px;
+      color: #4263EB;
+    }
+    
+    .permission-overlay p {
+      margin-bottom: 20px;
+      font-size: 16px;
+      max-width: 600px;
+    }
+    
+    .permission-button {
+      background: #4263EB;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 12px 25px;
+      font-size: 18px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    .navigation-indicator {
+      position: fixed;
+      width: 80px;
+      height: 80px;
+      right: 20px;
+      top: 20px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 50%;
+      z-index: 100;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .indicator-dot {
+      width: 16px;
+      height: 16px;
+      background: #4263EB;
+      border-radius: 50%;
+      position: absolute;
+      transition: all 0.1s ease-out;
+    }
+    
+    .navigation-mode {
+      position: fixed;
+      top: 110px;
+      right: 20px;
+      background: #4263EB;
+      color: white;
+      padding: 8px 10px;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      z-index: 100;
+    }
+    
+    .breadcrumb {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      z-index: 100;
+      max-width: 60%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .info-panel {
+      position: fixed;
+      left: 20px;
+      top: 70px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      z-index: 100;
+      max-width: 300px;
+      max-height: 200px;
+      overflow: auto;
+      display: none;
+    }
+    
+    .legend {
+      position: fixed;
+      bottom: 90px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      z-index: 100;
+    }
+    
+    .legend-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 5px 0;
+    }
+    
+    .legend-color {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+    
+    @media (max-width: 600px) {
+      .breadcrumb, .info-panel {
+        font-size: 12px;
+        padding: 8px 12px;
+      }
+      
+      .navigation-indicator {
+        width: 60px;
+        height: 60px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Permission request overlay -->
+  <div class="permission-overlay" id="permission-overlay">
+    <h2>3D Hierarchical Data Visualization</h2>
+    <p>This visualization demonstrates a 3D hierarchical structure of the Organism Classification system. Navigate through the taxonomy hierarchy by moving your device.</p>
+    <p>Tilt your device to move around and explore different branches of the hierarchy. Select nodes to see detailed information.</p>
+    <button class="permission-button" id="permission-button">Enable Motion Navigation</button>
+  </div>
+  
+  <!-- Navigation dot indicator -->
+  <div class="navigation-indicator">
+    <div class="indicator-dot" id="indicator-dot"></div>
+  </div>
+  
+  <!-- Navigation mode toggle -->
+  <button class="navigation-mode" id="navigation-toggle">Using Tilt Mode</button>
+  
+  <!-- Breadcrumb navigation -->
+  <div class="breadcrumb" id="breadcrumb">
+    Root
+  </div>
+  
+  <!-- Information panel -->
+  <div class="info-panel" id="info-panel"></div>
+  
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-title">Node Types</div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #4263EB;"></div>
+      <span>Kingdom</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #4DABF7;"></div>
+      <span>Phylum</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #37B24D;"></div>
+      <span>Class</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #74B816;"></div>
+      <span>Order</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #F59F00;"></div>
+      <span>Family</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #F76707;"></div>
+      <span>Genus</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #E03131;"></div>
+      <span>Species</span>
+    </div>
+  </div>
+  
+  <!-- Control panel -->
+  <div class="overlay">
+    <div class="controls">
+      <div id="control-instructions">Tilt device to navigate through the hierarchy</div>
+      <div class="button-container">
+        <button id="reset-button">Reset View</button>
+        <button id="calibrate-button">Calibrate</button>
+        <button id="zoom-out-button">Zoom Out</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- A-Frame Scene -->
+  <a-scene vr-mode-ui="enabled: false">
+    <a-entity id="rig" position="0 0 8">
+      <a-camera id="camera" look-controls="enabled: true; magicWindowTrackingEnabled: false; touchEnabled: true" wasd-controls="enabled: false">
+        <!-- Add cursor component for click detection -->
+        <a-cursor id="cursor" 
+                  raycaster="objects: .node" 
+                  color="#4263EB" 
+                  fuse="false"
+                  position="0 0 -1"
+                  geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.02"
+                  material="shader: flat"></a-cursor>
+      </a-camera>
+    </a-entity>
+    
+    <!-- Hierarchical data visualization will be created here -->
+    <a-entity id="visualization" position="0 0 0"></a-entity>
+    
+    <!-- Environment -->
+    <a-sky color="#111122"></a-sky>
+    <a-light type="ambient" intensity="0.5"></a-light>
+    <a-light type="directional" position="1 1 1" intensity="0.6"></a-light>
+  </a-scene>
+  
+  <script>
+    // Register hierarchy visualization component
+    AFRAME.registerComponent('hierarchy-tree', {
+      schema: {
+        data: {type: 'string'}, // JSON string of hierarchical data
+        nodeSize: {type: 'number', default: 0.5}, // Base size for nodes
+        levelSeparation: {type: 'number', default: 4}, // Distance between hierarchy levels
+        siblingDistance: {type: 'number', default: 2}, // Distance between siblings
+        subtreeDistance: {type: 'number', default: 2.5}, // Distance between subtrees
+        maxLevels: {type: 'number', default: 7} // Maximum levels to display (for performance)
+      },
+      
+      init: function() {
+        // Parse the data JSON string into an object
+        this.hierarchyData = JSON.parse(this.data.data);
+        
+        // Create container for the visualization
+        this.containerEl = document.createElement('a-entity');
+        this.containerEl.setAttribute('position', {x: 0, y: 0, z: 0});
+        this.el.appendChild(this.containerEl);
+        
+        // Set up the visualization
+        this.createHierarchyVisualization();
+        
+        // Add event listener for node selection
+        this.el.addEventListener('node-selected', this.handleNodeSelection.bind(this));
+      },
+      
+      createHierarchyVisualization: function() {
+        // Clear any existing visualization
+        while (this.containerEl.firstChild) {
+          this.containerEl.removeChild(this.containerEl.firstChild);
+        }
+        
+        // Create the root node at the center
+        const rootNode = this.createNode(this.hierarchyData, 0, null, [0, 0, 0]);
+        this.containerEl.appendChild(rootNode);
+        
+        // Layout the tree starting from the root node
+        this.layoutTree(this.hierarchyData, rootNode, 0);
+        
+        // Create connections between nodes
+        this.createConnections(this.hierarchyData, null);
+      },
+      
+// Modify the createNode function in the hierarchy-tree component
+createNode: function(nodeData, level, parentPosition, position) {
+  // Create a node entity
+  const nodeEntity = document.createElement('a-entity');
+  nodeEntity.setAttribute('position', {
+    x: position[0],
+    y: position[1],
+    z: position[2]
+  });
+  
+  // Determine color based on level (taxonomy rank)
+  const colors = [
+    '#4263EB', // Kingdom (blue)
+    '#4DABF7', // Phylum (light blue)
+    '#37B24D', // Class (green)
+    '#74B816', // Order (lime)
+    '#F59F00', // Family (amber)
+    '#F76707', // Genus (orange)
+    '#E03131'  // Species (red)
+  ];
+  
+  const color = colors[Math.min(level, colors.length - 1)];
+  
+  // Determine node size based on number of children
+  const childCount = nodeData.children ? nodeData.children.length : 0;
+  const nodeSize = this.data.nodeSize * (1 + Math.min(childCount * 0.1, 1.0));
+  
+  // Create a sphere for the node
+  const nodeSphere = document.createElement('a-sphere');
+  nodeSphere.setAttribute('radius', nodeSize);
+  nodeSphere.setAttribute('color', color);
+  nodeSphere.setAttribute('material', {
+    metalness: 0.2,
+    roughness: 0.5,
+    emissive: color,
+    emissiveIntensity: 0.3
+  });
+  
+        // Make node interactive
+        nodeSphere.setAttribute('class', 'node');
+        nodeSphere.setAttribute('data-name', nodeData.name);
+        nodeSphere.setAttribute('data-level', level);
+        nodeSphere.setAttribute('data-info', JSON.stringify(nodeData.info || {}));
+        
+        // Add hover and click effects
+        nodeSphere.addEventListener('mouseenter', () => {
+            nodeSphere.setAttribute('scale', {x: 1.3, y: 1.3, z: 1.3});
+            
+            // Update breadcrumb on hover
+            this.updateBreadcrumb(nodeData);
+        });
+        
+        nodeSphere.addEventListener('mouseleave', () => {
+            nodeSphere.setAttribute('scale', {x: 1, y: 1, z: 1});
+        });
+        
+        // Modified click event handling
+        const self = this;
+        nodeSphere.addEventListener('click', function() {
+            // Log for debugging
+            console.log('Node clicked:', nodeData.name);
+            
+            // Show info directly rather than relying on event emission
+            self.handleNodeSelection({
+            detail: {
+                name: nodeData.name,
+                level: level,
+                info: nodeData.info || {}
+            }
+            });
+        });
+        
+        // Add node label
+        const textEntity = document.createElement('a-text');
+        textEntity.setAttribute('value', nodeData.name);
+        textEntity.setAttribute('position', {x: 0, y: nodeSize + 0.25, z: 0});
+        textEntity.setAttribute('scale', {x: 2, y: 2, z: 2});
+        textEntity.setAttribute('align', 'center');
+        textEntity.setAttribute('color', '#FFFFFF');
+        textEntity.setAttribute('width', 2);
+        
+        // Add entities to the node container
+        nodeEntity.appendChild(nodeSphere);
+        nodeEntity.appendChild(textEntity);
+        
+        // Store position and data for connection creation
+        nodeEntity.setAttribute('data-position', position.join(','));
+        nodeEntity.setAttribute('data-id', nodeData.id || nodeData.name);
+        
+        return nodeEntity;
+        },
+      
+      layoutTree: function(nodeData, nodeEntity, level) {
+        // If max levels reached or no children, stop recursion
+        if (level >= this.data.maxLevels || !nodeData.children || nodeData.children.length === 0) {
+          return;
+        }
+        
+        const nodePosition = nodeEntity.getAttribute('position');
+        const nodeId = nodeEntity.getAttribute('data-id');
+        
+        // Calculate layout parameters
+        const angleStep = (Math.PI * 2) / nodeData.children.length;
+        const radiusMultiplier = Math.min(nodeData.children.length * 0.4, 2.0);
+        
+        // Layout children in a circular pattern around parent
+        nodeData.children.forEach((childData, index) => {
+          // Calculate position for child node
+          const angle = index * angleStep;
+          const horizontalRadius = (level + 1) * this.data.siblingDistance * radiusMultiplier;
+          
+          // For 3D effect, vary height slightly based on index
+          const verticalPosition = -level * this.data.levelSeparation + Math.sin(angle) * 0.5;
+          
+          // Calculate child position relative to parent
+          const childX = nodePosition.x + Math.cos(angle) * horizontalRadius;
+          const childY = nodePosition.y + verticalPosition;
+          const childZ = nodePosition.z + Math.sin(angle) * horizontalRadius;
+          
+          // Create child node
+          const childEntity = this.createNode(
+            childData, 
+            level + 1, 
+            [nodePosition.x, nodePosition.y, nodePosition.z],
+            [childX, childY, childZ]
+          );
+          
+          // Add to scene and continue recursion
+          this.containerEl.appendChild(childEntity);
+          this.layoutTree(childData, childEntity, level + 1);
+        });
+      },
+      
+      createConnections: function(nodeData, parentId) {
+        // If no children, stop recursion
+        if (!nodeData.children || nodeData.children.length === 0) {
+          return;
+        }
+        
+        const currentId = nodeData.id || nodeData.name;
+        
+        // If has parent, create connection
+        if (parentId) {
+          const parentEntity = this.containerEl.querySelector(`[data-id="${parentId}"]`);
+          const currentEntity = this.containerEl.querySelector(`[data-id="${currentId}"]`);
+          
+          if (parentEntity && currentEntity) {
+            const parentPos = parentEntity.getAttribute('position');
+            const currentPos = currentEntity.getAttribute('position');
+            
+            // Create connection line
+            const line = document.createElement('a-entity');
+            line.setAttribute('line', {
+              start: {x: parentPos.x, y: parentPos.y, z: parentPos.z},
+              end: {x: currentPos.x, y: currentPos.y, z: currentPos.z},
+              color: '#AAAAAA',
+              opacity: 0.6
+            });
+            
+            this.containerEl.appendChild(line);
+          }
+        }
+        
+        // Recursively create connections for children
+        nodeData.children.forEach((childData) => {
+          this.createConnections(childData, currentId);
+        });
+      },
+      
+      handleNodeSelection: function(event) {
+        // Get node data from event
+        const detail = event.detail;
+        
+        // Display node information in the info panel
+        const infoPanel = document.getElementById('info-panel');
+        
+        // Format information based on the level/taxonomy rank
+        const ranks = ['Kingdom', 'Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species'];
+        const rank = ranks[Math.min(detail.level, ranks.length - 1)];
+        
+        let infoContent = `<strong>${rank}: ${detail.name}</strong><br><br>`;
+        
+        // Add additional information if available
+        if (detail.info) {
+          for (const [key, value] of Object.entries(detail.info)) {
+            if (key !== 'description') {
+              infoContent += `<strong>${key}:</strong> ${value}<br>`;
+            }
+          }
+          
+          if (detail.info.description) {
+            infoContent += `<br>${detail.info.description}`;
+          }
+        }
+        
+        infoPanel.innerHTML = infoContent;
+        infoPanel.style.display = 'block';
+      },
+      
+      updateBreadcrumb: function(nodeData) {
+        // This is simplified - in a complete implementation, we would 
+        // traverse up the hierarchy to build a full breadcrumb path
+        const breadcrumb = document.getElementById('breadcrumb');
+        breadcrumb.textContent = nodeData.name;
+      }
+    });
+    
+    // Configuration for motion controls
+    const config = {
+      // How much tilt is needed for movement (lower values = more sensitive)
+      sensitivity: {
+        x: 2.0,
+        y: 2.0,
+        z: 2.0
+      },
+      // Maximum tilt angle that will be used for movement
+      maxTilt: 30,
+      // Limits on movement range
+      limits: {
+        x: { min: -20, max: 20 },
+        y: { min: -15, max: 15 },
+        z: { min: -5, max: 20 }
+      },
+      // Current calibration offsets
+      calibration: {
+        beta: 0,
+        gamma: 0
+      }
+    };
+    
+    // State variables
+    let motionEnabled = false;
+    let currentPosition = { x: 0, y: 0, z: 8 };
+    let targetPosition = { x: 0, y: 0, z: 8 };
+    let useAbsoluteTilt = true; // Toggle between absolute tilt and relative motion
+    
+    // Store the most recent device orientation values
+    let lastBeta = 0;
+    let lastGamma = 0;
+    
+    // Update our last known orientation values
+    function updateLastOrientation(event) {
+      if (event.beta !== null) lastBeta = event.beta;
+      if (event.gamma !== null) lastGamma = event.gamma;
+    }
+    
+    // DOM References
+    const permissionOverlay = document.getElementById('permission-overlay');
+    const permissionButton = document.getElementById('permission-button');
+    const resetButton = document.getElementById('reset-button');
+    const calibrateButton = document.getElementById('calibrate-button');
+    const zoomOutButton = document.getElementById('zoom-out-button');
+    const indicatorDot = document.getElementById('indicator-dot');
+    const navigationToggle = document.getElementById('navigation-toggle');
+    const controlInstructions = document.getElementById('control-instructions');
+    const infoPanel = document.getElementById('info-panel');
+    const rigElement = document.getElementById('rig');
+    
+    // Initialize the application
+    document.addEventListener('DOMContentLoaded', function() {
+      // Request device motion permission when button is clicked
+      permissionButton.addEventListener('click', requestMotionPermission);
+      
+      // Use click instead of touchstart/touchend to avoid accidental double triggers
+      resetButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        resetPosition();
+      });
+      
+      calibrateButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        calibrateOrientation();
+      });
+      
+      zoomOutButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        zoomOut();
+      });
+      
+      // Navigation mode toggle
+      navigationToggle.addEventListener('click', function(e) {
+        e.preventDefault();
+        toggleNavigationMode();
+      });
+      
+      // Wait for scene to be loaded before creating visualization
+      document.querySelector('a-scene').addEventListener('loaded', function() {
+        createTaxonomyVisualization();
+        
+        // Check if DeviceOrientationEvent is available
+        if (window.DeviceOrientationEvent) {
+          console.log('Device orientation is supported');
+        } else {
+          console.log('Device orientation not supported');
+          showUnsupportedMessage();
+        }
+      });
+    });
+    
+    // Sample hierarchical data - Taxonomy Example
+    const taxonomyData = {
+      name: "Life",
+      id: "life",
+      info: {
+        description: "All living organisms on Earth."
+      },
+      children: [
+        {
+          name: "Animalia",
+          id: "kingdom_animalia",
+          info: {
+            description: "The animal kingdom includes all multicellular, eukaryotic organisms that are heterotrophic and motile.",
+            members: "Approximately 1.5 million described species",
+            characteristics: "Multicellular, no cell walls, heterotrophic"
+          },
+          children: [
+            {
+              name: "Chordata",
+              id: "phylum_chordata",
+              info: {
+                description: "Animals with a notochord, a hollow dorsal nerve cord, pharyngeal slits, and a post-anal tail at some point in their development.",
+                distinguishing_features: "Notochord, dorsal nerve cord, pharyngeal slits",
+                examples: "Vertebrates, tunicates, lancelets"
+              },
+              children: [
+                {
+                  name: "Mammalia",
+                  id: "class_mammalia",
+                  info: {
+                    description: "Warm-blooded vertebrates characterized by the presence of mammary glands, hair/fur, and three middle ear bones.",
+                    characteristics: "Mammary glands, hair/fur, endothermic",
+                    approximate_species: "6,400 species"
+                  },
+                  children: [
+                    {
+                      name: "Carnivora",
+                      id: "order_carnivora",
+                      info: {
+                        description: "An order of placental mammals that includes dogs, cats, bears, seals, and related forms characterized by a common ancestor and specialized teeth.",
+                        diet: "Primarily meat-eaters (carnivores)",
+                        families: "16 families including Canidae, Felidae, Ursidae"
+                      },
+                      children: [
+                        {
+                          name: "Felidae",
+                          id: "family_felidae",
+                          info: {
+                            description: "The family of cats, including domestic cats, lions, tigers, leopards and many others.",
+                            characteristics: "Retractable claws, specialized dentition",
+                            genera: "14 genera, 41 species"
+                          },
+                          children: [
+                            {
+                              name: "Panthera",
+                              id: "genus_panthera",
+                              info: {
+                                description: "A genus of big cats that includes lions, tigers, jaguars, and leopards.",
+                                distinguishing_features: "Ability to roar due to specialized larynx",
+                                distribution: "Africa, Asia, Americas"
+                              },
+                              children: [
+                                {
+                                  name: "Panthera leo",
+                                  id: "species_leo",
+                                  info: {
+                                    description: "The lion is a large cat of the genus Panthera and species Panthera leo. It has a muscular body, deep chest, and short, rounded head.",
+                                    conservation_status: "Vulnerable",
+                                    habitat: "Savanna, grassland, dense scrub",
+                                    lifespan: "10-14 years in the wild, up to 20 in captivity"
+                                  }
+                                },
+                                {
+                                  name: "Panthera tigris",
+                                  id: "species_tigris",
+                                  info: {
+                                    description: "The tiger is the largest cat species and a member of the genus Panthera. It is recognizable by its dark vertical stripes on orange-brown fur.",
+                                    conservation_status: "Endangered",
+                                    habitat: "Tropical rainforests, swamps, grasslands",
+                                    lifespan: "8-10 years in the wild, up to 25 in captivity"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              name: "Felis",
+                              id: "genus_felis",
+                              info: {
+                                description: "A genus of small cats that includes the domestic cat.",
+                                species: "Approximately 5 species",
+                                distribution: "Europe, Africa, Asia"
+                              },
+                              children: [
+                                {
+                                  name: "Felis catus",
+                                  id: "species_catus",
+                                  info: {
+                                    description: "The domestic cat, a small carnivorous mammal often kept as a pet.",
+                                    domestication: "Approximately 9,500 years ago",
+                                    breeds: "Over 60 recognized breeds",
+                                    lifespan: "12-18 years"
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          name: "Canidae",
+                          id: "family_canidae",
+                          info: {
+                            description: "The family of dogs, including domestic dogs, wolves, foxes, and other extant and extinct species.",
+                            characteristics: "Non-retractable claws, specialized dentition",
+                            genera: "13 genera, 35 species"
+                          },
+                          children: [
+                            {
+                              name: "Canis",
+                              id: "genus_canis",
+                              info: {
+                                description: "A genus of canids including wolves, dogs, coyotes, and jackals.",
+                                species: "7 extant species",
+                                distribution: "Worldwide (natural and human introduction)"
+                              },
+                              children: [
+                                {
+                                  name: "Canis lupus",
+                                  id: "species_lupus",
+                                  info: {
+                                    description: "The wolf, a large canine native to Eurasia and North America.",
+                                    conservation_status: "Least Concern",
+                                    habitat: "Forests, tundra, mountains, grasslands",
+                                    social_structure: "Pack animals with complex social hierarchy"
+                                  }
+                                },
+                                {
+                                  name: "Canis familiaris",
+                                  id: "species_familiaris",
+                                  info: {
+                                    description: "The domestic dog, a domesticated form of the wolf and the most widely abundant terrestrial carnivore.",
+                                    domestication: "At least 15,000 years ago",
+                                    breeds: "Over 340 recognized breeds",
+                                    relationship_with_humans: "Working animals, companions, therapy animals"
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      name: "Primates",
+                      id: "order_primates",
+                      info: {
+                        description: "An order of mammals that includes lemurs, lorises, tarsiers, monkeys, and apes (including humans).",
+                        characteristics: "Large brains, binocular vision, grasping hands",
+                        families: "16 families including Hominidae (great apes)"
+                      },
+                      children: [
+                        {
+                          name: "Hominidae",
+                          id: "family_hominidae",
+                          info: {
+                            description: "The family of great apes, including orangutans, gorillas, chimpanzees, bonobos, and humans.",
+                            characteristics: "No tail, complex social behaviors, high intelligence",
+                            genera: "4 genera, 8 species"
+                          },
+                          children: [
+                            {
+                              name: "Homo",
+                              id: "genus_homo",
+                              info: {
+                                description: "The genus that includes modern humans and their close extinct relatives.",
+                                distinguishing_features: "Enlarged brain, bipedal locomotion",
+                                extinct_species: "Numerous, including H. neanderthalensis, H. erectus"
+                              },
+                              children: [
+                                {
+                                  name: "Homo sapiens",
+                                  id: "species_sapiens",
+                                  info: {
+                                    description: "Modern humans, the only extant species of the genus Homo.",
+                                    emergence: "Approximately 300,000 years ago",
+                                    population: "Over 7.8 billion",
+                                    distinguishing_features: "Complex language, culture, technology use"
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  name: "Aves",
+                  id: "class_aves",
+                  info: {
+                    description: "Birds are a group of warm-blooded vertebrates constituting the class Aves, characterized by feathers, toothless beaked jaws, and a strong lightweight skeleton.",
+                    characteristics: "Feathers, lightweight skeleton, lay eggs",
+                    approximate_species: "10,000+ species"
+                  },
+                  children: []
+                }
+              ]
+            },
+            {
+              name: "Arthropoda",
+              id: "phylum_arthropoda",
+              info: {
+                description: "The phylum of invertebrate animals with an exoskeleton, a segmented body, and paired jointed appendages.",
+                members: "Over 1 million described species (80% of all animal species)",
+                subphyla: "Chelicerata, Crustacea, Myriapoda, Hexapoda"
+              },
+              children: []
+            }
+          ]
+        },
+        {
+          name: "Plantae",
+          id: "kingdom_plantae",
+          info: {
+            description: "The plant kingdom includes multicellular, predominantly photosynthetic eukaryotes.",
+            members: "Approximately 400,000 described species",
+            characteristics: "Cell walls with cellulose, photosynthetic"
+          },
+          children: []
+        },
+        {
+          name: "Fungi",
+          id: "kingdom_fungi",
+          info: {
+            description: "The fungal kingdom includes organisms like yeasts, molds, and mushrooms.",
+            members: "Approximately 120,000 described species (estimated 2-4 million total)",
+            characteristics: "Heterotrophic, cell walls with chitin, absorptive nutrition"
+          },
+          children: []
+        },
+        {
+          name: "Protista",
+          id: "kingdom_protista",
+          info: {
+            description: "A diverse group of eukaryotic organisms that are not animals, plants, or fungi.",
+            members: "Approximately 100,000 described species",
+            examples: "Algae, amoebas, paramecia"
+          },
+          children: []
+        },
+        {
+          name: "Bacteria",
+          id: "kingdom_bacteria",
+          info: {
+            description: "Single-celled prokaryotic microorganisms with cell walls containing peptidoglycan.",
+            members: "Approximately 30,000 described species (estimated millions total)",
+            characteristics: "Prokaryotic, no nucleus, peptidoglycan cell walls"
+          },
+          children: []
+        },
+        {
+          name: "Archaea",
+          id: "kingdom_archaea",
+          info: {
+            description: "Single-celled prokaryotic microorganisms similar to bacteria but with distinct molecular characteristics.",
+            members: "Approximately 500 described species (many more undiscovered)",
+            characteristics: "Prokaryotic, no nucleus, unique cell wall composition"
+          },
+          children: []
+        }
+      ]
+    };
+    
+    // Create the visualization
+    function createTaxonomyVisualization() {
+      const visualization = document.getElementById('visualization');
+      
+      // Add the hierarchy tree component
+      visualization.setAttribute('hierarchy-tree', {
+        data: JSON.stringify(taxonomyData),
+        nodeSize: 0.4,
+        levelSeparation: 3.5,
+        siblingDistance: 2,
+        subtreeDistance: 3,
+        maxLevels: 5 // Limit to 5 levels for performance
+      });
+    }
+    
+    // Toggle between navigation modes
+    function toggleNavigationMode() {
+      useAbsoluteTilt = !useAbsoluteTilt;
+      
+      if (useAbsoluteTilt) {
+        navigationToggle.textContent = "Using Tilt Mode";
+        controlInstructions.textContent = "Tilt device to navigate through the hierarchy";
+      } else {
+        navigationToggle.textContent = "Using Motion Mode";
+        controlInstructions.textContent = "Move device like a window into the hierarchy";
+        // Reset calibration for motion mode
+        calibrateOrientation();
+      }
+    }
+    
+    // Request motion sensor permissions
+    function requestMotionPermission() {
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        // iOS 13+ requires explicit permission
+        DeviceOrientationEvent.requestPermission()
+          .then(permissionState => {
+            if (permissionState === 'granted') {
+              enableMotionControls();
+            } else {
+              alert('Motion sensor permission denied');
+            }
+          })
+          .catch(console.error);
+      } else {
+        // Non-iOS devices or older iOS versions
+        enableMotionControls();
+      }
+    }
+    
+    // Enable motion controls and hide the permission overlay
+    function enableMotionControls() {
+      motionEnabled = true;
+      permissionOverlay.style.display = 'none';
+      
+      // Add the device orientation event listener
+      window.addEventListener('deviceorientation', handleOrientation);
+      
+      // Start the update loop
+      requestAnimationFrame(updateLoop);
+      
+      console.log('Motion controls enabled');
+    }
+    
+    // Handle device orientation events
+    function handleOrientation(event) {
+      if (!motionEnabled) return;
+      
+      // Get the beta (front-to-back tilt) and gamma (left-to-right tilt) values
+      const beta = event.beta || 0;  // front-to-back tilt in degrees
+      const gamma = event.gamma || 0; // left-to-right tilt in degrees
+      
+      // Update our stored last orientation values
+      updateLastOrientation(event);
+      
+      if (useAbsoluteTilt) {
+        // Absolute tilt mode - map device angles directly to position
+        handleTiltMode(beta, gamma);
+      } else {
+        // Motion mode - use relative changes for movement
+        handleMotionMode(beta, gamma);
+      }
+    }
+    
+    // Handle tilt-based navigation (absolute angles)
+    function handleTiltMode(beta, gamma) {
+      // Get adjusted beta and gamma values
+      const adjustedBeta = beta - config.calibration.beta;
+      const adjustedGamma = gamma - config.calibration.gamma;
+      
+      // Update the indicator dot to show tilt direction
+      updateIndicator(adjustedGamma, adjustedBeta);
+      
+      // X movement (left-right tilt)
+      if (Math.abs(adjustedGamma) > 5) { // Small deadzone to prevent drift
+        const tiltPercentX = Math.min(Math.abs(adjustedGamma), config.maxTilt) / config.maxTilt;
+        const moveX = (adjustedGamma > 0 ? 1 : -1) * tiltPercentX * config.sensitivity.x;
+        targetPosition.x = Math.max(config.limits.x.min, Math.min(config.limits.x.max, currentPosition.x + moveX * 0.05));
+      }
+      
+      // Y movement (based on combination of tilts - experimental)
+      if (Math.abs(adjustedBeta) > 45 && Math.abs(adjustedGamma) > 20) {
+        const tiltY = (adjustedBeta - 45) * (adjustedGamma > 0 ? 1 : -1);
+        const tiltPercentY = Math.min(Math.abs(tiltY) / 30, 1.0);
+        const moveY = tiltPercentY * config.sensitivity.y;
+        targetPosition.y = Math.max(config.limits.y.min, Math.min(config.limits.y.max, currentPosition.y + moveY * 0.03));
+      }
+      
+      // Z movement (forward-backward tilt)
+      // We use a neutral position of 45 degrees for forward/back tilt
+      const neutralBeta = 45;
+      if (Math.abs(adjustedBeta - neutralBeta) > 5) { // Small deadzone centered around neutral
+        const tiltZ = adjustedBeta - neutralBeta;
+        const tiltPercentZ = Math.min(Math.abs(tiltZ), config.maxTilt) / config.maxTilt;
+        const moveZ = (tiltZ > 0 ? 1 : -1) * tiltPercentZ * config.sensitivity.z;
+        targetPosition.z = Math.max(config.limits.z.min, Math.min(config.limits.z.max, currentPosition.z + moveZ * 0.05));
+      }
+    }
+    
+    // Handle motion-based navigation (relative movement)
+    function handleMotionMode(beta, gamma) {
+      // Get adjusted beta and gamma values (relative changes)
+      const adjustedBeta = beta - config.calibration.beta;
+      const adjustedGamma = gamma - config.calibration.gamma;
+      
+      // Update the indicator dot to show tilt direction
+      updateIndicator(adjustedGamma, adjustedBeta);
+      
+      // Map the angle differences directly to movement speeds
+      const moveX = adjustedGamma * 0.05;
+      const moveY = (adjustedBeta - 45) * 0.03; // Use beta offset from 45° for Y movement
+      const moveZ = -adjustedBeta * 0.05;
+      
+      // Apply movement with limits
+      targetPosition.x = Math.max(config.limits.x.min, Math.min(config.limits.x.max, targetPosition.x + moveX * 0.05));
+      targetPosition.y = Math.max(config.limits.y.min, Math.min(config.limits.y.max, targetPosition.y + moveY * 0.05));
+      targetPosition.z = Math.max(config.limits.z.min, Math.min(config.limits.z.max, targetPosition.z + moveZ * 0.05));
+      
+      // Update calibration continuously to make motion relative
+      config.calibration.beta = beta;
+      config.calibration.gamma = gamma;
+    }
+    
+    // Update the position indicator dot
+    function updateIndicator(xAngle, yAngle) {
+      // Normalize beta and gamma to -1 to 1 range
+      let normalizedX, normalizedY;
+      
+      if (useAbsoluteTilt) {
+        // For tilt mode, we use gamma for X-axis
+        normalizedX = Math.min(Math.max(xAngle / config.maxTilt, -1), 1);
+        
+        // For tilt mode, beta should be relative to neutral position (45°)
+        const neutralBeta = 45;
+        normalizedY = Math.min(Math.max((yAngle - neutralBeta) / config.maxTilt, -1), 1);
+      } else {
+        // For motion mode, use smaller range for better visual feedback
+        normalizedX = Math.min(Math.max(xAngle / 10, -1), 1);
+        normalizedY = Math.min(Math.max(yAngle / 10, -1), 1);
+      }
+      
+      // Update dot position (using scale to keep within the circle)
+      const radius = 30; // Max radius in pixels
+      const x = normalizedX * radius;
+      const y = normalizedY * radius;
+      
+      indicatorDot.style.transform = `translate(${x}px, ${y}px)`;
+      
+      // Change color based on intensity
+      const intensity = Math.min(1, Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY));
+      indicatorDot.style.backgroundColor = `rgba(66, 99, 235, ${0.5 + intensity * 0.5})`;
+      indicatorDot.style.width = `${16 + intensity * 8}px`;
+      indicatorDot.style.height = `${16 + intensity * 8}px`;
+    }
+    
+    // Main update loop
+    function updateLoop() {
+      // Smooth camera movement
+      currentPosition.x += (targetPosition.x - currentPosition.x) * 0.1;
+      currentPosition.y += (targetPosition.y - currentPosition.y) * 0.1;
+      currentPosition.z += (targetPosition.z - currentPosition.z) * 0.1;
+      
+      // Apply position to rig
+      rigElement.setAttribute('position', `${currentPosition.x} ${currentPosition.y} ${currentPosition.z}`);
+      
+      // Continue the loop
+      requestAnimationFrame(updateLoop);
+    }
+    
+    // Reset position to center
+    function resetPosition() {
+      targetPosition = { x: 0, y: 0, z: 8 };
+      console.log('Position reset');
+      
+      // Visual feedback
+      resetButton.style.backgroundColor = '#4CAF50';
+      resetButton.textContent = 'View Reset!';
+      setTimeout(() => {
+        resetButton.style.backgroundColor = '#4263EB';
+        resetButton.textContent = 'Reset View';
+      }, 1000);
+      
+      // Also hide info panel
+      infoPanel.style.display = 'none';
+    }
+    
+    // Zoom out to see more of the hierarchy
+    function zoomOut() {
+      targetPosition.z = Math.min(targetPosition.z + 5, config.limits.z.max);
+      
+      // Visual feedback
+      zoomOutButton.style.backgroundColor = '#4CAF50';
+      zoomOutButton.textContent = 'Zoomed Out!';
+      setTimeout(() => {
+        zoomOutButton.style.backgroundColor = '#4263EB';
+        zoomOutButton.textContent = 'Zoom Out';
+      }, 1000);
+    }
+    
+    // Calibrate the orientation to current device position
+    function calibrateOrientation() {
+      // Use the most recent orientation values for immediate calibration
+      config.calibration.beta = lastBeta;
+      config.calibration.gamma = lastGamma;
+      
+      console.log(`Calibrated: beta=${config.calibration.beta}, gamma=${config.calibration.gamma}`);
+      
+      // Reset the indicator dot
+      indicatorDot.style.transform = 'translate(0px, 0px)';
+      
+      // Show visual feedback that calibration occurred
+      const originalColor = calibrateButton.style.backgroundColor;
+      calibrateButton.style.backgroundColor = '#4CAF50'; // Green
+      calibrateButton.textContent = 'Calibrated!';
+      
+      // Return to original state after a short delay
+      setTimeout(() => {
+        calibrateButton.style.backgroundColor = originalColor;
+        calibrateButton.textContent = 'Calibrate';
+      }, 1000);
+    }
+    
+    // Show message if device doesn't support orientation
+    function showUnsupportedMessage() {
+      permissionOverlay.innerHTML = `
+        <h2>Device Not Supported</h2>
+        <p>Your device doesn't support motion sensors, or they're not accessible in this browser. Please try using a mobile device with a modern browser.</p>
+        <p>As a fallback, you can still navigate using touch/mouse controls.</p>
+        <button class="permission-button" onclick="enableFallbackControls()">Continue with Touch Controls</button>
+      `;
+    }
+    
+    // Enable fallback controls for unsupported devices
+    function enableFallbackControls() {
+      permissionOverlay.style.display = 'none';
+      
+      // Enable regular A-Frame controls
+      const camera = document.getElementById('camera');
+      camera.setAttribute('wasd-controls', 'enabled: true');
+      camera.setAttribute('look-controls', 'enabled: true');
+      
+      console.log('Using fallback touch/mouse controls');
+    }
+  </script>
+</body>
+</html>

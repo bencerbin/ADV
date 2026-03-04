@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from typing import List
 import os 
 
+
 def load_covid_data(filename: str) -> pd.DataFrame:
     """ 
     Loads and preprocesses a COVID-19 dataset into a total cases by country for a given series of dates
@@ -85,6 +86,10 @@ def load_covid_data(filename: str) -> pd.DataFrame:
     return df, weekly, monthly
 
 
+
+
+load_covid_data('/Users/bencerbin/Desktop/CS Shit/DataViz/global_confirmed_cases.csv')
+
 def create_daily_cases_scatter(
     data: pd.DataFrame,
     countries: List[str],
@@ -102,15 +107,16 @@ def create_daily_cases_scatter(
     
     """
     
+    start = pd.to_datetime(start_date)
+    end = pd.to_datetime(end_date)
+    
     if data.empty:
         raise ValueError("Input DataFrame is empty.")
     
     if start > end or start < data.index.min() or end > data.index.max():
         raise ValueError("dates are out of bounds")
     
-
-    start = pd.to_datetime(start_date)
-    end = pd.to_datetime(end_date)
+    
         
     filtered = data.loc[start:end]
         
@@ -132,6 +138,14 @@ def create_daily_cases_scatter(
 
     fig.tight_layout()
     plt.show()
+
+data,monthly,weekly = load_covid_data('/Users/bencerbin/Desktop/CS Shit/DataViz/global_confirmed_cases.csv')
+start_date = "2020-03-01"
+end_date = "2020-06-01"
+
+
+create_daily_cases_scatter(data, ["Italy", "Australia", "Austria"], start_date, end_date)
+
 
 def create_total_cases_bar(
     data: pd.DataFrame,
@@ -182,39 +196,41 @@ def create_total_cases_bar(
 
     return fig
     
+
+data,monthly,weekly = load_covid_data('/Users/bencerbin/Desktop/CS Shit/DataViz/global_confirmed_cases.csv')
+
+create_total_cases_bar(data, 10)
+
+
+
 def create_interactive_trends(
     data: pd.DataFrame,
     countries: List[str]
 ) -> go.Figure:
     
     """ 
-    Create interactive time series plot.
+    Create interactive time series plot with date range slider.
     
     Args:
-        data: COVID data
+        data: COVID data (index must be dates)
         countries: Countries to include
-        
         
     Returns:
         go.Figure: Plotly figure 
-    
     """
     
-    if data is None or data.empty:
-        raise ValueError("Input DataFrame is empty.")
+    # Ensure datetime index
+    if not pd.api.types.is_datetime64_any_dtype(data.index):
+        data.index = pd.to_datetime(data.index)
     
-    if countries is None or countries.empty:
-        raise ValueError("Countries list is empty")
-    
-    # Validate countries list 
+    # Validate countries
     missing = [c for c in countries if c not in data.columns]
-
     if missing:
         raise ValueError(f"The following countries are not in the dataset: {missing}")
     
     fig = go.Figure()
     
-    #Build the countries scatterplot
+    # Add traces
     for country in countries:
         fig.add_trace(
             go.Scatter(
@@ -222,22 +238,39 @@ def create_interactive_trends(
                 y=data[country],
                 mode="lines",
                 name=country,
-                
             )
         )
         
-    #Format the scatter plot
+    # Update layout with date range slider
     fig.update_layout(
         title="Interactive COVID-19 Trends",
-        xaxis_title ="Date",
-        yaxis_title ="Daily Cases",
-        yaxis_tickformat=",",
-        hovermode ="x unified",
-        template = "plotly_white"
+        template="plotly_white",
+        hovermode="x unified",
+        xaxis=dict(
+            title="Date",
+            type="date",
+            rangeslider=dict(visible=True),
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=1, label="1m", step="month", stepmode="backward"),
+                    dict(count=6, label="6m", step="month", stepmode="backward"),
+                    dict(count=1, label="YTD", step="year", stepmode="todate"),
+                    dict(count=1, label="1y", step="year", stepmode="backward"),
+                    dict(step="all")
+                ])
+            )
+        ),
+        yaxis=dict(
+            title="Daily Cases",
+            tickformat=","
+        )
     )
     
     return fig
 
+data,monthly,weekly = load_covid_data('/Users/bencerbin/Desktop/CS Shit/DataViz/global_confirmed_cases.csv')
+
+create_interactive_trends(data, ["Italy", "Australia", "Austria"])
 
 import dash
 from dash import dcc, html, Input, Output
@@ -264,13 +297,12 @@ def create_country_comparison(
     
     
     """
-    
+
     if data is None or data.empty:
         raise ValueError("Input DataFrame is empty.")
     
     if metric != "total_cases":
         raise ValueError("Currently only 'total_cases' metric is supported.")
-
 
 
     # Calculate date for app header
@@ -380,3 +412,12 @@ def create_country_comparison(
 
     if __name__ == '__main__':
         app.run_server(debug=True, port=8051)
+
+
+data, monthly, weekly = load_covid_data(
+    '/Users/bencerbin/Desktop/CS Shit/DataViz/global_confirmed_cases.csv'
+)
+
+create_country_comparison(data, "total_cases")
+
+        

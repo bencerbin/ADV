@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Data Visualization</title>
+    
+    <!-- Load Three.js and its controls from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls must be loaded separately -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="visualization-container">
+        <div id="visualization"></div>
+        <div id="controls"></div>
+    </div>
+
+    <script>
+
+        
+
+        // First, we create our virtual "stage" where all 3D objects will exist
+        // The scene acts as a container for everything we'll create
+        const scene = new THREE.Scene();
+        // We set a light gray background to provide good contrast
+        scene.background = new THREE.Color(0xf0f0f0);
+
+        // Next, we set up our virtual camera
+        // PerspectiveCamera mimics how human eyes see, with closer objects appearing larger
+        const camera = new THREE.PerspectiveCamera(
+            75,                                     // Field of view - how wide our camera can see
+            window.innerWidth / window.innerHeight, // Aspect ratio matches our screen
+            0.1,                                   // Near clipping plane - closest visible point
+            1000                                   // Far clipping plane - furthest visible point
+        );
+
+        // Position the camera and point it at the center of our scene
+        camera.position.set(5, 5, 5);  // Move camera 5 units up/right/forward
+        camera.lookAt(0, 0, 0);        // Point camera at the origin (center)
+
+
+        // Create our renderer - this draws everything to the screen
+        // We enable antialiasing for smoother edges on our 3D objects
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        // Make the rendering canvas fill our window
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        // Add the renderer's canvas element to our webpage
+        document.getElementById('visualization').appendChild(renderer.domElement);
+
+        // Add ambient light for general illumination
+        // This creates soft, omnidirectional lighting that helps show basic shape
+        const ambientLight = new THREE.AmbientLight(0x404040);  // Soft gray light
+        scene.add(ambientLight);
+
+        // Add directional light for shadows and depth
+        // This light acts like distant sunlight, creating shadows that show form
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        directionalLight.position.set(5, 5, 5);  // Light comes from same direction as camera
+        scene.add(directionalLight);
+
+        // Set up the animation loop that will redraw our scene
+        function animate_1() {
+            // Request the next frame - this creates a smooth animation loop
+            requestAnimationFrame(animate);
+            // Render the current state of our scene from the camera's perspective
+            renderer.render(scene, camera);
+        }
+        // Start the animation loop
+        animate_1();
+
+        fetch('data.json')
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Get value range from metadata for proper normalization
+        const minValue = data.metadata.valueRange.min;
+        const maxValue = data.metadata.valueRange.max;
+        
+        // Create a sphere geometry that we'll reuse for each point
+        const geometry = new THREE.SphereGeometry(0.1);
+        
+        // Create a material that responds to lighting
+        const material = new THREE.MeshPhongMaterial();
+
+        // Create a sphere for each data point
+        data.points.forEach(point => {
+            // Clone the material so each sphere can have its own color
+            const sphere = new THREE.Mesh(geometry, material.clone());
+            
+            // Position the sphere based on data values
+            sphere.position.set(point.x, point.y, point.z);
+            
+            // Normalize value to 0-1 range using metadata
+            const normalizedValue = (point.value - minValue) / (maxValue - minValue);
+            
+            // Set color based on the normalized value
+            // Hue goes from blue (0.66) to red (0) for low to high values
+            const hue = 0.66 * (1 - normalizedValue);
+            sphere.material.color.setHSL(hue, 1, 0.5);
+            
+            // Store data for potential interaction
+            sphere.userData = point;
+            
+            // Add the sphere to our scene
+            scene.add(sphere);
+        });
+    })
+    .catch(error => {
+        console.error('Error loading data:', error);
+    });
+
+    
+    // Create orbit controls to allow camera manipulation
+// Note: OrbitControls must be loaded via separate script tag
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+// Enable damping for smoother camera movement
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+
+// Set control limits (optional but recommended)
+controls.minDistance = 2;
+controls.maxDistance = 20;
+
+// Update the existing animation loop to include control updates
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();  // Required when enableDamping is true
+    renderer.render(scene, camera);
+}
+animate();
+    
+
+    </script>
+</body>
+</html>

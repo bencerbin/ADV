@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    #vr-button, #exit-button {
+      position: fixed;
+      bottom: 20px;
+      padding: 15px 30px;
+      background-color: #2E3A87;
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+      border: none;
+      border-radius: 5px;
+      z-index: 999;
+      cursor: pointer;
+    }
+    
+    #vr-button {
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    
+    #exit-button {
+      right: 20px;
+      display: none;
+    }
+    
+    #device-info {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background-color: rgba(0,0,0,0.5);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: sans-serif;
+      z-index: 999;
+    }
+    
+    #orientation-message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0,0,0,0.8);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      font-family: sans-serif;
+      z-index: 1000;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="device-info"></div>
+  <div id="orientation-message">
+    Please rotate your device to landscape orientation for the best VR experience
+    <div style="margin-top: 20px; transform: rotate(90deg); font-size: 24px;">↻</div>
+  </div>
+  <button id="vr-button">ENTER VR</button>
+  <button id="exit-button">EXIT VR</button>
+  
+  <a-scene>
+    <!-- Scene content -->
+    <a-box position="-1 0.5 -3" rotation="0 45 0" color="#4CC3D9"></a-box>
+    <a-sphere position="0 1.25 -5" radius="1.25" color="#EF2D5E"></a-sphere>
+    <a-cylinder position="1 0.75 -3" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
+    <a-plane position="0 0 -4" rotation="-90 0 0" width="4" height="4" color="#7BC8A4"></a-plane>
+    <a-sky color="#ECECEC"></a-sky>
+    
+    <!-- Camera rig that works for both desktop and VR -->
+    <a-entity id="rig" position="0 1.6 0">
+      <a-entity id="camera" camera look-controls wasd-controls></a-entity>
+    </a-entity>
+  </a-scene>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const vrButton = document.getElementById('vr-button');
+      const exitButton = document.getElementById('exit-button');
+      const deviceInfo = document.getElementById('device-info');
+      const orientationMessage = document.getElementById('orientation-message');
+      const scene = document.querySelector('a-scene');
+      const camera = document.getElementById('camera');
+      
+      // Check device and set up appropriate mode
+      const isMobile = AFRAME.utils.device.isMobile();
+      const isDesktop = !isMobile;
+      
+      // Function to check and handle orientation
+      function checkOrientation() {
+        // Only relevant for mobile
+        if (!isMobile) return;
+        
+        // Check if in portrait mode (height > width)
+        const isPortrait = window.innerHeight > window.innerWidth;
+        
+        if (isPortrait) {
+          orientationMessage.style.display = 'block';
+        } else {
+          orientationMessage.style.display = 'none';
+        }
+      }
+      
+      // Set up orientation checking
+      window.addEventListener('resize', checkOrientation);
+      window.addEventListener('orientationchange', checkOrientation);
+      
+      // Initial orientation check
+      checkOrientation();
+      
+      // Configure for desktop mode if needed
+      if (isDesktop) {
+        // Add orbit controls for desktop
+        camera.setAttribute('orbit-controls', {
+          autoRotate: false,
+          target: '0 1.6 -4',
+          enableDamping: true,
+          dampingFactor: 0.25,
+          rotateSpeed: 0.25,
+          minDistance: 1,
+          maxDistance: 100
+        });
+        
+        deviceInfo.textContent = "Desktop Mode - Use mouse to look around or enter VR with a compatible headset";
+        vrButton.textContent = "ENTER VR (DESKTOP)";
+      } else {
+        deviceInfo.textContent = "Mobile Device Detected - Click ENTER VR for immersive view";
+      }
+      
+      // Function to force landscape orientation
+      function forceLandscapeOrientation() {
+        if (isMobile) {
+          if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape-primary')
+              .then(() => {
+                console.log('Orientation locked to landscape');
+              })
+              .catch(error => {
+                console.error('Orientation lock failed: ', error);
+                // Show manual orientation message if locking fails
+                checkOrientation();
+              });
+          } else if (screen.lockOrientation) {
+            // Older API
+            screen.lockOrientation('landscape');
+          } else if (screen.mozLockOrientation) {
+            screen.mozLockOrientation('landscape');
+          } else if (screen.msLockOrientation) {
+            screen.msLockOrientation('landscape');
+          } else {
+            // Can't lock programmatically, show message
+            checkOrientation();
+          }
+        }
+      }
+      
+      // Function to release orientation lock
+      function releaseOrientationLock() {
+        if (isMobile) {
+          if (screen.orientation && screen.orientation.unlock) {
+            screen.orientation.unlock();
+            console.log('Orientation lock released');
+          }
+        }
+      }
+      
+      // VR button functionality
+      vrButton.addEventListener('click', function() {
+        // First force landscape orientation
+        forceLandscapeOrientation();
+        
+        // Wait a moment for orientation to change
+        setTimeout(() => {
+          // Then try to enter VR
+          scene.enterVR();
+          vrButton.style.display = 'none';
+          exitButton.style.display = 'block';
+          deviceInfo.style.display = 'none';
+          orientationMessage.style.display = 'none';
+        }, 500);
+      });
+      
+      // Exit button functionality
+      exitButton.addEventListener('click', function() {
+        scene.exitVR();
+        exitButton.style.display = 'none';
+        vrButton.style.display = 'block';
+        deviceInfo.style.display = 'block';
+        
+        // Release orientation lock
+        releaseOrientationLock();
+        
+        // Force exit fullscreen if needed
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
+      });
+      
+      // Scene VR mode change events
+      scene.addEventListener('enter-vr', function() {
+        console.log('Entered VR mode');
+        exitButton.style.display = 'block';
+        vrButton.style.display = 'none';
+      });
+      
+      scene.addEventListener('exit-vr', function() {
+        console.log('Exited VR mode');
+        exitButton.style.display = 'none';
+        vrButton.style.display = 'block';
+        
+        // Release orientation lock when exiting VR
+        releaseOrientationLock();
+      });
+      
+      // Loading the orbit controls component for desktop
+      if (isDesktop) {
+        // Simple orbit controls component
+        AFRAME.registerComponent('orbit-controls', {
+          schema: {
+            target: { type: 'vec3' },
+            enableDamping: { default: true },
+            dampingFactor: { default: 0.25 },
+            rotateSpeed: { default: 0.25 },
+            minDistance: { default: 1 },
+            maxDistance: { default: 100 },
+            autoRotate: { default: false }
+          },
+          
+          init: function() {
+            // This is a simplified version - in a real app, you'd implement full orbiting behavior
+            const el = this.el;
+            
+            this.handleMouseDown = this.handleMouseDown.bind(this);
+            this.handleMouseMove = this.handleMouseMove.bind(this);
+            this.handleMouseUp = this.handleMouseUp.bind(this);
+            
+            document.addEventListener('mousedown', this.handleMouseDown);
+            document.addEventListener('mousemove', this.handleMouseMove);
+            document.addEventListener('mouseup', this.handleMouseUp);
+            
+            this.rotating = false;
+            this.lastX = 0;
+            this.lastY = 0;
+          },
+          
+          handleMouseDown: function(evt) {
+            this.rotating = true;
+            this.lastX = evt.clientX;
+            this.lastY = evt.clientY;
+          },
+          
+          handleMouseMove: function(evt) {
+            if (!this.rotating) return;
+            
+            const deltaX = evt.clientX - this.lastX;
+            const deltaY = evt.clientY - this.lastY;
+            
+            // Update camera rotation based on mouse movement
+            const rotation = this.el.getAttribute('rotation');
+            rotation.y -= deltaX * this.data.rotateSpeed;
+            rotation.x -= deltaY * this.data.rotateSpeed;
+            rotation.x = Math.max(-90, Math.min(90, rotation.x));
+            
+            this.el.setAttribute('rotation', rotation);
+            
+            this.lastX = evt.clientX;
+            this.lastY = evt.clientY;
+          },
+          
+          handleMouseUp: function() {
+            this.rotating = false;
+          },
+          
+          remove: function() {
+            document.removeEventListener('mousedown', this.handleMouseDown);
+            document.removeEventListener('mousemove', this.handleMouseMove);
+            document.removeEventListener('mouseup', this.handleMouseUp);
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>

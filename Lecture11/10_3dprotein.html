@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>3D Protein Visualization (1a3n.pdb)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
+  <style>
+    body { margin: 0; }
+    .controls {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 10;
+      background: rgba(0,0,0,0.5);
+      padding: 10px;
+      border-radius: 5px;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+    .controls button {
+      margin: 5px;
+      padding: 5px 10px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .controls button:hover {
+      background: #0056b3;
+    }
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 24px;
+      color: white;
+      background: rgba(0,0,0,0.7);
+      padding: 20px;
+      border-radius: 10px;
+      z-index: 20;
+    }
+    #pdb-input {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+    }
+    #pdb-input input {
+      padding: 5px;
+      margin-right: 5px;
+      border-radius: 3px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading" class="loading">Loading PDB file...</div>
+  
+  <div class="controls">
+    <button id="view-ball-stick">Ball & Stick</button>
+    <button id="view-space-filling">Space Filling</button>
+    <button id="view-backbone">Backbone</button>
+    <button id="view-cartoon">Cartoon</button>
+    <div id="atom-count">Total atoms: 0</div>
+    <div id="pdb-input">
+      <input type="text" id="pdb-id" value="1a3n" placeholder="PDB ID (e.g., 1a3n)">
+      <button id="load-pdb">Load</button>
+    </div>
+  </div>
+  
+  <a-scene background="color: #222" id="scene" loading>
+    <a-entity id="protein-container" position="0 0 0"></a-entity>
+    
+    <a-entity id="rig" position="0 1.6 5">
+      <a-camera id="camera" look-controls wasd-controls>
+        <a-cursor color="#4CC3D9"></a-cursor>
+      </a-camera>
+    </a-entity>
+    
+    <a-entity light="type: ambient; color: #BBB; intensity: 0.5"></a-entity>
+    <a-entity light="type: directional; color: #FFF; intensity: 0.6" position="-1 1 1"></a-entity>
+    <a-entity light="type: directional; color: #FFF; intensity: 0.6" position="1 1 -1"></a-entity>
+  </a-scene>
+
+  <script>
+    // Atom colors based on element type (CPK coloring scheme)
+    const atomColors = {
+      'H': '#FFFFFF', // White
+      'C': '#909090', // Light grey
+      'N': '#3050F8', // Blue
+      'O': '#FF0D0D', // Red
+      'P': '#FF8000', // Orange
+      'S': '#FFFF30', // Yellow
+      'CL': '#1FF01F', // Green
+      'F': '#90E050', // Light green
+      'BR': '#A62929', // Brown
+      'I': '#940094', // Purple
+      'HE': '#D9FFFF',
+      'NE': '#B3E3F5',
+      'AR': '#80D1E3',
+      'XE': '#940094',
+      'FE': '#E06633', // Orange-brown for iron
+      'CA': '#7D80B0', // Light purple for calcium
+      'ZN': '#7D80B0', // Light purple for zinc
+      'MG': '#8AFF00' // Light green for magnesium
+    };
+
+    // Default atom radius values (in Angstroms)
+    const atomRadii = {
+      'H': 0.25,
+      'C': 0.7,
+      'N': 0.65,
+      'O': 0.6,
+      'P': 1.0,
+      'S': 1.0,
+      'CL': 1.0,
+      'F': 0.5,
+      'BR': 1.15,
+      'I': 1.4,
+      'default': 0.8
+    };
+
+    // Space filling radii (van der Waals radii)
+    const spaceFillingRadii = {
+      'H': 1.2,
+      'C': 1.7,
+      'N': 1.55,
+      'O': 1.52,
+      'P': 1.8,
+      'S': 1.8,
+      'CL': 1.75,
+      'F': 1.47,
+      'BR': 1.85,
+      'I': 1.98,
+      'default': 1.5
+    };
+
+    // Global variables
+    let atoms = [];
+    let viewer = 'ball-stick'; // Default visualization
+    let proteinContainer = document.getElementById('protein-container');
+    let scene = document.getElementById('scene');
+    
+    // Disable the loading screen when the scene is ready
+    scene.addEventListener('loaded', function () {
+      // Now load the PDB
+      loadPDBFromRCSB(document.getElementById('pdb-id').value);
+    });
+    
+    // Load PDB file from RCSB
+    async function loadPDBFromRCSB(pdbId) {
+      try {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('loading').textContent = `Loading PDB ${pdbId}...`;
+        
+        const response = await fetch(`https://files.rcsb.org/download/${pdbId}.pdb`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch PDB: ${response.status} ${response.statusText}`);
+        }
+        
+        const text = await response.text();
+        parsePDB(text);
+        document.getElementById('loading').style.display = 'none';
+      } catch (error) {
+        console.error('Error loading PDB file:', error);
+        document.getElementById('loading').textContent = `Error loading PDB file: ${error.message}`;
+      }
+    }
+
+    // Parse PDB file
+    function parsePDB(data) {
+      atoms = [];
+      const lines = data.split('\n');
+      
+      for (const line of lines) {
+        if (line.startsWith('ATOM') || line.startsWith('HETATM')) {
+          try {
+            // PDB format specification: https://www.wwpdb.org/documentation/file-format-content/format33/sect9.html
+            const atomRecord = {
+              recordType: line.substring(0, 6).trim(),
+              serialNumber: parseInt(line.substring(6, 11).trim()),
+              atomName: line.substring(12, 16).trim(),
+              altLoc: line.substring(16, 17).trim(),
+              resName: line.substring(17, 20).trim(),
+              chainID: line.substring(21, 22).trim(),
+              resSeq: parseInt(line.substring(22, 26).trim()),
+              iCode: line.substring(26, 27).trim(),
+              x: parseFloat(line.substring(30, 38).trim()),
+              y: parseFloat(line.substring(38, 46).trim()),
+              z: parseFloat(line.substring(46, 54).trim()),
+              occupancy: parseFloat(line.substring(54, 60).trim()),
+              tempFactor: parseFloat(line.substring(60, 66).trim()),
+              element: line.substring(76, 78).trim(),
+              charge: line.substring(78, 80).trim()
+            };
+            
+            // If element is not specified in the element field, try to extract from atom name
+            if (!atomRecord.element) {
+              const firstChar = atomRecord.atomName.replace(/[0-9]/g, '').charAt(0);
+              atomRecord.element = firstChar;
+            }
+            
+            atoms.push(atomRecord);
+          } catch (e) {
+            console.warn('Error parsing atom line:', line, e);
+          }
+        }
+      }
+      
+      document.getElementById('atom-count').textContent = `Total atoms: ${atoms.length}`;
+      
+      if (atoms.length === 0) {
+        document.getElementById('loading').textContent = "No atoms found in the PDB file.";
+        document.getElementById('loading').style.display = 'block';
+        return;
+      }
+      
+      centerProtein();
+      renderVisualization();
+    }
+
+    // Center the protein for better viewing
+    function centerProtein() {
+      if (atoms.length === 0) return;
+      
+      // Calculate center of mass
+      const sum = atoms.reduce((acc, atom) => {
+        return {
+          x: acc.x + atom.x,
+          y: acc.y + atom.y,
+          z: acc.z + atom.z
+        };
+      }, { x: 0, y: 0, z: 0 });
+      
+      const center = {
+        x: sum.x / atoms.length,
+        y: sum.y / atoms.length,
+        z: sum.z / atoms.length
+      };
+      
+      // Adjust all atom positions
+      atoms.forEach(atom => {
+        atom.x -= center.x;
+        atom.y -= center.y;
+        atom.z -= center.z;
+      });
+    }
+
+    // Get color for an atom based on its element
+    function getAtomColor(element) {
+      if (!element) return '#AAAAAA';
+      const normalizedElement = element.toUpperCase();
+      return atomColors[normalizedElement] || '#AAAAAA';
+    }
+
+    // Get radius for an atom based on its element
+    function getAtomRadius(element, mode = 'default') {
+      if (!element) return atomRadii.default;
+      const normalizedElement = element.toUpperCase();
+      if (mode === 'space-filling') {
+        return spaceFillingRadii[normalizedElement] || spaceFillingRadii.default;
+      }
+      return atomRadii[normalizedElement] || atomRadii.default;
+    }
+
+    // Clear previous visualization
+    function clearVisualization() {
+      while (proteinContainer.firstChild) {
+        proteinContainer.removeChild(proteinContainer.firstChild);
+      }
+    }
+
+    // Render the protein in the selected visualization style
+    function renderVisualization() {
+      clearVisualization();
+      
+      if (atoms.length === 0) return;
+      
+      const scale = 0.3; // Scale factor to make the protein fit better in the scene
+      
+      switch (viewer) {
+        case 'ball-stick':
+          renderBallAndStick(scale);
+          break;
+        case 'space-filling':
+          renderSpaceFilling(scale);
+          break;
+        case 'backbone':
+          renderBackbone(scale);
+          break;
+        case 'cartoon':
+          renderCartoon(scale);
+          break;
+      }
+    }
+
+    // Ball and stick visualization
+    function renderBallAndStick(scale) {
+      // Create atoms
+      atoms.forEach(atom => {
+        const sphere = document.createElement('a-sphere');
+        sphere.setAttribute('position', `${atom.x * scale} ${atom.y * scale} ${atom.z * scale}`);
+        sphere.setAttribute('radius', getAtomRadius(atom.element) * scale);
+        sphere.setAttribute('color', getAtomColor(atom.element));
+        sphere.setAttribute('metalness', '0.2');
+        sphere.setAttribute('roughness', '0.3');
+        proteinContainer.appendChild(sphere);
+      });
+      
+      // Create bonds (simplified - just connects atoms that are within a certain distance)
+      const bondDistance = 2.0; // Ångstroms
+      
+      for (let i = 0; i < atoms.length; i++) {
+        for (let j = i + 1; j < atoms.length; j++) {
+          const atom1 = atoms[i];
+          const atom2 = atoms[j];
+          
+          // Check if atoms are covalently bonded (approximation)
+          const dx = atom1.x - atom2.x;
+          const dy = atom1.y - atom2.y;
+          const dz = atom1.z - atom2.z;
+          const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          
+          if (distance < bondDistance) {
+            // Create a cylinder for the bond
+            const midpoint = {
+              x: (atom1.x + atom2.x) / 2,
+              y: (atom1.y + atom2.y) / 2,
+              z: (atom1.z + atom2.z) / 2
+            };
+            
+            const bond = document.createElement('a-cylinder');
+            
+            // Position is the midpoint between the two atoms
+            bond.setAttribute('position', `${midpoint.x * scale} ${midpoint.y * scale} ${midpoint.z * scale}`);
+            
+            // Calculate orientation to point from atom1 to atom2
+            bond.setAttribute('height', distance * scale);
+            
+            // Get the direction vector from atom1 to atom2
+            const direction = {
+              x: atom2.x - atom1.x,
+              y: atom2.y - atom1.y,
+              z: atom2.z - atom1.z
+            };
+            
+            // Make the cylinder point in the right direction
+            bond.setAttribute('look-at', `${atom2.x * scale} ${atom2.y * scale} ${atom2.z * scale}`);
+            
+            bond.setAttribute('radius', 0.05 * scale);
+            bond.setAttribute('color', '#CCCCCC');
+            
+            proteinContainer.appendChild(bond);
+          }
+        }
+      }
+    }
+
+    // Space filling visualization
+    function renderSpaceFilling(scale) {
+      atoms.forEach(atom => {
+        const sphere = document.createElement('a-sphere');
+        sphere.setAttribute('position', `${atom.x * scale} ${atom.y * scale} ${atom.z * scale}`);
+        sphere.setAttribute('radius', getAtomRadius(atom.element, 'space-filling') * scale);
+        sphere.setAttribute('color', getAtomColor(atom.element));
+        sphere.setAttribute('metalness', '0.2');
+        sphere.setAttribute('roughness', '0.3');
+        sphere.setAttribute('opacity', '0.8'); // Slightly transparent to see structure better
+        proteinContainer.appendChild(sphere);
+      });
+    }
+
+    // Backbone visualization (only shows alpha carbons and connections)
+    function renderBackbone(scale) {
+      const backboneAtoms = atoms.filter(atom => atom.atomName === 'CA');
+      
+      // Draw alpha carbons
+      backboneAtoms.forEach(atom => {
+        const sphere = document.createElement('a-sphere');
+        sphere.setAttribute('position', `${atom.x * scale} ${atom.y * scale} ${atom.z * scale}`);
+        sphere.setAttribute('radius', 0.4 * scale);
+        sphere.setAttribute('color', '#FF5555');
+        proteinContainer.appendChild(sphere);
+      });
+      
+      // Connect consecutive alpha carbons in the same chain
+      for (let i = 0; i < backboneAtoms.length - 1; i++) {
+        const atom1 = backboneAtoms[i];
+        const atom2 = backboneAtoms[i + 1];
+        
+        // Only connect if they're in the same chain and sequential residues
+        if (atom1.chainID === atom2.chainID && atom2.resSeq - atom1.resSeq === 1) {
+          const midpoint = {
+            x: (atom1.x + atom2.x) / 2,
+            y: (atom1.y + atom2.y) / 2,
+            z: (atom1.z + atom2.z) / 2
+          };
+          
+          const dx = atom1.x - atom2.x;
+          const dy = atom1.y - atom2.y;
+          const dz = atom1.z - atom2.z;
+          const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          
+          const bond = document.createElement('a-cylinder');
+          bond.setAttribute('position', `${midpoint.x * scale} ${midpoint.y * scale} ${midpoint.z * scale}`);
+          bond.setAttribute('height', distance * scale);
+          
+          // Point from atom1 to atom2
+          bond.setAttribute('look-at', `${atom2.x * scale} ${atom2.y * scale} ${atom2.z * scale}`);
+          
+          bond.setAttribute('radius', 0.15 * scale);
+          bond.setAttribute('color', '#FFAAAA');
+          
+          proteinContainer.appendChild(bond);
+        }
+      }
+    }
+
+    // Simplified cartoon visualization (rainbow coloring based on residue sequence)
+    function renderCartoon(scale) {
+      // Get unique chains
+      const chains = [...new Set(atoms.map(atom => atom.chainID))];
+      
+      chains.forEach(chainID => {
+        // Get all alpha carbons for this chain
+        const chainAtoms = atoms.filter(atom => atom.chainID === chainID && atom.atomName === 'CA');
+        
+        if (chainAtoms.length === 0) return;
+        
+        // Get residue range for rainbow coloring
+        const minResSeq = Math.min(...chainAtoms.map(atom => atom.resSeq));
+        const maxResSeq = Math.max(...chainAtoms.map(atom => atom.resSeq));
+        const resRange = maxResSeq - minResSeq;
+        
+        // Draw thicker tube for backbone
+        for (let i = 0; i < chainAtoms.length - 1; i++) {
+          const atom1 = chainAtoms[i];
+          const atom2 = chainAtoms[i + 1];
+          
+          if (atom2.resSeq - atom1.resSeq === 1) {
+            const midpoint = {
+              x: (atom1.x + atom2.x) / 2,
+              y: (atom1.y + atom2.y) / 2,
+              z: (atom1.z + atom2.z) / 2
+            };
+            
+            const dx = atom1.x - atom2.x;
+            const dy = atom1.y - atom2.y;
+            const dz = atom1.z - atom2.z;
+            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            
+            const tube = document.createElement('a-cylinder');
+            tube.setAttribute('position', `${midpoint.x * scale} ${midpoint.y * scale} ${midpoint.z * scale}`);
+            tube.setAttribute('height', distance * scale);
+            
+            // Point from atom1 to atom2
+            tube.setAttribute('look-at', `${atom2.x * scale} ${atom2.y * scale} ${atom2.z * scale}`);
+            
+            tube.setAttribute('radius', 0.3 * scale);
+            
+            // Rainbow coloring based on residue sequence
+            const normalizedPos = resRange > 0 ? (atom1.resSeq - minResSeq) / resRange : 0;
+            const hue = normalizedPos * 240; // Blue to red spectrum
+            tube.setAttribute('color', `hsl(${hue}, 100%, 50%)`);
+            
+            proteinContainer.appendChild(tube);
+          }
+        }
+        
+        // Add spheres at the alpha carbons for better visualization
+        chainAtoms.forEach(atom => {
+          const normalizedPos = resRange > 0 ? (atom.resSeq - minResSeq) / resRange : 0;
+          const hue = normalizedPos * 240; // Blue to red spectrum
+          
+          const sphere = document.createElement('a-sphere');
+          sphere.setAttribute('position', `${atom.x * scale} ${atom.y * scale} ${atom.z * scale}`);
+          sphere.setAttribute('radius', 0.35 * scale);
+          sphere.setAttribute('color', `hsl(${hue}, 100%, 50%)`);
+          proteinContainer.appendChild(sphere);
+        });
+      });
+    }
+
+    // Set up event listeners for visualization controls
+    document.getElementById('view-ball-stick').addEventListener('click', () => {
+      viewer = 'ball-stick';
+      renderVisualization();
+    });
+
+    document.getElementById('view-space-filling').addEventListener('click', () => {
+      viewer = 'space-filling';
+      renderVisualization();
+    });
+
+    document.getElementById('view-backbone').addEventListener('click', () => {
+      viewer = 'backbone';
+      renderVisualization();
+    });
+
+    document.getElementById('view-cartoon').addEventListener('click', () => {
+      viewer = 'cartoon';
+      renderVisualization();
+    });
+    
+    document.getElementById('load-pdb').addEventListener('click', () => {
+      const pdbId = document.getElementById('pdb-id').value.trim();
+      if (pdbId) {
+        loadPDBFromRCSB(pdbId);
+      }
+    });
+
+    // Add keyboard handler for PDB ID input
+    document.getElementById('pdb-id').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const pdbId = document.getElementById('pdb-id').value.trim();
+        if (pdbId) {
+          loadPDBFromRCSB(pdbId);
+        }
+      }
+    });
+  </script>
+</body>
+</html>

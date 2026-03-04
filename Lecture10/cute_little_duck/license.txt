@@ -1,0 +1,11 @@
+Model Information:
+* title:	Cute little Duck
+* source:	https://sketchfab.com/3d-models/cute-little-duck-7d731ce780534a01b5a11f72f7e93fd2
+* author:	TadenStar (https://sketchfab.com/tadenstar)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Cute little Duck" (https://sketchfab.com/3d-models/cute-little-duck-7d731ce780534a01b5a11f72f7e93fd2) by TadenStar (https://sketchfab.com/tadenstar) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

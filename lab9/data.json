@@ -1,0 +1,37 @@
+{
+    "points": [
+      {"x": 0, "y": 0, "z": 0, "value": 10, "label": "Origin Point"},
+      {"x": 1, "y": 1, "z": 1, "value": 15, "label": "Point A"},
+      {"x": -1, "y": 2, "z": -1, "value": 20, "label": "Point B"},
+      {"x": 2, "y": -1, "z": 1, "value": 25, "label": "Point C"},
+      {"x": -2, "y": 1, "z": 2, "value": 5, "label": "Point D"},
+      {"x": 1.5, "y": 1.5, "z": -1.5, "value": 30, "label": "Point E"},
+      {"x": -1.5, "y": -1.5, "z": 1.5, "value": 12, "label": "Point F"},
+      {"x": 0.5, "y": -2, "z": 0.5, "value": 18, "label": "Point G"},
+      {"x": -0.5, "y": 2, "z": -0.5, "value": 22, "label": "Point H"},
+      {"x": 2, "y": 0, "z": -2, "value": 8, "label": "Point I"},
+      {"x": -2, "y": 0, "z": 2, "value": 28, "label": "Point J"},
+      {"x": 0, "y": 2, "z": 0, "value": 14, "label": "Point K"},
+      {"x": 0, "y": -2, "z": 0, "value": 16, "label": "Point L"},
+      {"x": 2, "y": 2, "z": 2, "value": 24, "label": "Point M"},
+      {"x": -2, "y": -2, "z": -2, "value": 11, "label": "Point N"},
+      {"x": 1, "y": -1, "z": -1, "value": 19, "label": "Point O"},
+      {"x": -1, "y": 1, "z": 1, "value": 21, "label": "Point P"},
+      {"x": 1.5, "y": -1.5, "z": 0, "value": 7, "label": "Point Q"},
+      {"x": -1.5, "y": 0, "z": -1.5, "value": 27, "label": "Point R"},
+      {"x": 0, "y": 1.5, "z": -1.5, "value": 13, "label": "Point S"}
+    ],
+    "metadata": {
+      "description": "Sample 3D scatter plot data",
+      "dimensions": {
+        "x": "X Dimension",
+        "y": "Y Dimension",
+        "z": "Z Dimension",
+        "value": "Additional dimension represented by color"
+      },
+      "valueRange": {
+        "min": 5,
+        "max": 30
+      }
+    }
+  }

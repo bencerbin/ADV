@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    /* VR button styling */
+    .a-enter-vr {
+      position: fixed !important;
+      bottom: 20px !important;
+      right: 20px !important;
+      z-index: 9999 !important;
+      opacity: 1 !important;
+      display: block !important;
+      visibility: visible !important;
+    }
+
+    .a-enter-vr-button {
+      background-color: #2E3A87 !important;
+      border: 2px solid white !important;
+    }
+
+    #orientation-message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0,0,0,0.8);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      font-family: sans-serif;
+      z-index: 1000;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="orientation-message">
+    Please rotate your device to landscape orientation for the best VR experience
+    <div style="margin-top: 20px; transform: rotate(90deg); font-size: 24px;">↻</div>
+  </div>
+
+  <a-scene>
+    <a-sky color="#f0f0f0"></a-sky>
+    
+    <!-- Camera rig -->
+    <a-entity id="rig" position="0 1.6 4">
+      <a-entity camera look-controls>
+        <a-cursor color="#2E3A87"></a-cursor>
+      </a-entity>
+    </a-entity>
+    
+    <!-- Chart title -->
+    <a-text value="Temperature Data by Region" position="0 3.2 0" color="#000" align="center" scale="1.5 1.5 1.5"></a-text>
+    
+    <!-- Chart container -->
+    <a-entity id="chart-container" position="-3 0 0"></a-entity>
+  </a-scene>
+
+  <script>
+    // Sample data - in real application, this would be loaded from an external source
+    const temperatureData = [
+      { region: "North", value: 45 },
+      { region: "South", value: 85 },
+      { region: "East", value: 65 },
+      { region: "West", value: 72 },
+      { region: "Central", value: 58 }
+    ];
+    
+    // Function to create visualization from data
+    function createVisualization(data) {
+      const container = document.getElementById('chart-container');
+      
+      // Create axes
+      const xAxis = document.createElement('a-box');
+      xAxis.setAttribute('width', 7);
+      xAxis.setAttribute('height', 0.05);
+      xAxis.setAttribute('depth', 0.05);
+      xAxis.setAttribute('color', '#000');
+      container.appendChild(xAxis);
+      
+      const yAxis = document.createElement('a-box');
+      yAxis.setAttribute('width', 0.05);
+      yAxis.setAttribute('height', 3);
+      yAxis.setAttribute('depth', 0.05);
+      yAxis.setAttribute('color', '#000');
+      container.appendChild(yAxis);
+      
+      // Add labels
+      const xLabel = document.createElement('a-text');
+      xLabel.setAttribute('value', 'Region');
+      xLabel.setAttribute('position', '3 -0.4 0');
+      xLabel.setAttribute('color', '#000');
+      xLabel.setAttribute('align', 'center');
+      container.appendChild(xLabel);
+      
+      const yLabel = document.createElement('a-text');
+      yLabel.setAttribute('value', 'Temperature (°F)');
+      yLabel.setAttribute('position', '-0.4 1.5 0');
+      yLabel.setAttribute('rotation', '0 0 90');
+      yLabel.setAttribute('color', '#000');
+      yLabel.setAttribute('align', 'center');
+      container.appendChild(yLabel);
+      
+      // Create bars
+      data.forEach((item, index) => {
+        // Scale value to reasonable height (max 3 units)
+        const height = (item.value / 100) * 3;
+        const halfHeight = height / 2;
+        
+        // Create bar
+        const bar = document.createElement('a-box');
+        bar.setAttribute('position', `${index + 0.5} ${halfHeight} 0`);
+        bar.setAttribute('width', 0.7);
+        bar.setAttribute('height', height);
+        bar.setAttribute('depth', 0.7);
+        
+        // Color based on temperature (blue-cold to red-hot)
+        const tempNormalized = item.value / 100;
+        const r = Math.floor(tempNormalized * 255);
+        const b = Math.floor((1 - tempNormalized) * 255);
+        bar.setAttribute('color', `rgb(${r}, 100, ${b})`);
+        
+        // Add interactivity
+        bar.setAttribute('class', 'interactive');
+        
+        // Add label
+        const regionLabel = document.createElement('a-text');
+        regionLabel.setAttribute('value', item.region);
+        regionLabel.setAttribute('position', `0 ${-halfHeight - 0.3} 0`);
+        regionLabel.setAttribute('color', '#000');
+        regionLabel.setAttribute('align', 'center');
+        regionLabel.setAttribute('width', 3);
+        bar.appendChild(regionLabel);
+        
+        // Add value label
+        const valueLabel = document.createElement('a-text');
+        valueLabel.setAttribute('value', `${item.value}°F`);
+        valueLabel.setAttribute('position', '0 0 0.4');
+        valueLabel.setAttribute('color', '#FFF');
+        valueLabel.setAttribute('align', 'center');
+        valueLabel.setAttribute('width', 3);
+        bar.appendChild(valueLabel);
+        
+        // Add animations
+        bar.addEventListener('mouseenter', function() {
+          this.setAttribute('material', 'opacity', 0.8);
+          this.setAttribute('scale', '1.05 1.05 1.05');
+        });
+        
+        bar.addEventListener('mouseleave', function() {
+          this.setAttribute('material', 'opacity', 1);
+          this.setAttribute('scale', '1 1 1');
+        });
+        
+        container.appendChild(bar);
+      });
+    }
+    
+    // Scene setup
+    document.querySelector('a-scene').addEventListener('loaded', function () {
+      const rig = document.getElementById('rig');
+      const scene = document.querySelector('a-scene');
+      const originalPosition = rig.getAttribute('position');
+
+      // VR mode handling
+      scene.addEventListener('enter-vr', () => {
+        rig.setAttribute('position', {x: 0, y: 1.6, z: 8});
+        document.getElementById('orientation-message').style.display = 'none';
+      });
+
+      scene.addEventListener('exit-vr', () => {
+        rig.setAttribute('position', originalPosition);
+      });
+
+      // Create visualization
+      createVisualization(temperatureData);
+    });
+
+    // Orientation handling
+    function checkOrientation() {
+      const isPortrait = window.innerHeight > window.innerWidth;
+      document.getElementById('orientation-message').style.display = isPortrait ? 'block' : 'none';
+    }
+    window.addEventListener('resize', checkOrientation);
+    checkOrientation();
+  </script>
+</body>
+</html>

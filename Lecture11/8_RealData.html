@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>3D Scatter Plot with Motion Navigation</title>
+  <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    
+    .overlay {
+      position: fixed;
+      bottom: 20px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      z-index: 100;
+      pointer-events: none;
+    }
+    
+    .controls {
+      background: rgba(0, 0, 0, 0.7);
+      border-radius: 10px;
+      padding: 10px 20px;
+      color: white;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      pointer-events: auto;
+      text-align: center;
+      max-width: 90%;
+    }
+    
+    .button-container {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    button {
+      background: #ff4081;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 8px 15px;
+      font-size: 14px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    
+    .permission-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .permission-overlay h2 {
+      font-size: 24px;
+      margin-bottom: 20px;
+      color: #ff4081;
+    }
+    
+    .permission-overlay p {
+      margin-bottom: 20px;
+      font-size: 16px;
+      max-width: 600px;
+    }
+    
+    .permission-button {
+      background: #ff4081;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 12px 25px;
+      font-size: 18px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    .navigation-indicator {
+      position: fixed;
+      width: 80px;
+      height: 80px;
+      right: 20px;
+      top: 20px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 50%;
+      z-index: 100;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .indicator-dot {
+      width: 16px;
+      height: 16px;
+      background: #ff4081;
+      border-radius: 50%;
+      position: absolute;
+      transition: all 0.1s ease-out;
+    }
+    
+    .orientation-mode {
+      position: fixed;
+      top: 110px;
+      right: 20px;
+      background: #ff4081;
+      color: white;
+      padding: 8px 10px;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      z-index: 100;
+    }
+    
+    .data-tooltip {
+      display: none;
+      position: fixed;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      z-index: 200;
+      pointer-events: none;
+      transition: all 0.2s ease;
+    }
+    
+    .color-legend {
+      position: fixed;
+      bottom: 90px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      z-index: 100;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 5px 0;
+    }
+    
+    .legend-color {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+    
+    .challenge-overlay {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      max-width: 300px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 15px;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      z-index: 100;
+      transform: translateX(-350px);
+      transition: transform 0.3s ease;
+    }
+    
+    .challenge-overlay.visible {
+      transform: translateX(0);
+    }
+    
+    .challenge-toggle {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: #ff4081;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 8px 15px;
+      font-size: 14px;
+      z-index: 101;
+    }
+    
+    .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: none;
+      border: none;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- Permission request overlay -->
+  <div class="permission-overlay" id="permission-overlay">
+    <h2>3D Scatter Plot with Motion Navigation</h2>
+    <p>This visualization demonstrates a multidimensional data set using a 3D scatter plot. Navigate through the data by moving your device.</p>
+    <p>Each point represents country data with these dimensions:</p>
+    <p><strong>X:</strong> GDP per Capita | <strong>Y:</strong> Life Expectancy | <strong>Z:</strong> Education Index<br>
+    <strong>Color:</strong> Region | <strong>Size:</strong> Population</p>
+    <button class="permission-button" id="permission-button">Enable Motion Sensors</button>
+  </div>
+  
+  <!-- Navigation dot indicator -->
+  <div class="navigation-indicator">
+    <div class="indicator-dot" id="indicator-dot"></div>
+  </div>
+  
+  <!-- Orientation mode toggle -->
+  <button class="orientation-mode" id="orientation-toggle">Using Tilt Mode</button>
+  
+  <!-- Data tooltip for hover -->
+  <div class="data-tooltip" id="data-tooltip"></div>
+  
+  <!-- Challenge toggle button -->
+  <button class="challenge-toggle" id="challenge-toggle">Show Challenges</button>
+  
+  <!-- Challenge overlay -->
+  <div class="challenge-overlay" id="challenge-overlay">
+    <button class="close-btn" id="close-challenge">×</button>
+    <h3>Challenge 1: Data Explorer</h3>
+    <p>Find 3 countries from different regions that have similar life expectancy but different GDP levels.</p>
+    <h3>Challenge 2: Navigation Mastery</h3>
+    <p>Switch between Tilt and Motion modes. Which makes it easier to identify the country with highest education index?</p>
+    <h3>Challenge 3: Pattern Finder</h3>
+    <p>Position yourself to see all regions at once. Can you identify which region has the most consistent life expectancy?</p>
+  </div>
+  
+  <!-- Color legend -->
+  <div class="color-legend" id="color-legend">
+    <div style="margin-bottom: 5px;"><strong>Region Legend:</strong></div>
+    <div class="legend-item"><div class="legend-color" style="background: #4285F4;"></div>Europe</div>
+    <div class="legend-item"><div class="legend-color" style="background: #EA4335;"></div>Americas</div>
+    <div class="legend-item"><div class="legend-color" style="background: #FBBC05;"></div>Asia</div>
+    <div class="legend-item"><div class="legend-color" style="background: #34A853;"></div>Africa</div>
+    <div class="legend-item"><div class="legend-color" style="background: #8F44AD;"></div>Oceania</div>
+  </div>
+  
+  <!-- Control panel -->
+  <div class="overlay">
+    <div class="controls">
+      <div id="control-instructions">Tilt device to navigate through the data space</div>
+      <div class="button-container">
+        <button id="reset-button">Reset Position</button>
+        <button id="calibrate-button">Calibrate</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- A-Frame Scene -->
+  <a-scene vr-mode-ui="enabled: false">
+    <a-entity id="rig" position="0 1.6 5">
+      <a-camera id="camera" look-controls="enabled: true; magicWindowTrackingEnabled: false; touchEnabled: true" wasd-controls="enabled: false"></a-camera>
+    </a-entity>
+    
+    <!-- 3D Scatter Plot will be created here -->
+    <a-entity id="visualization" position="0 0 0"></a-entity>
+    
+    <!-- Environment -->
+    <a-sky color="#112233"></a-sky>
+    <a-light type="ambient" intensity="0.7"></a-light>
+    <a-light type="directional" position="1 1 1" intensity="0.5"></a-light>
+  </a-scene>
+  
+  <script>
+    // Register scatter plot component
+    AFRAME.registerComponent('scatter-plot-3d', {
+      schema: {
+        dataPoints: {type: 'array'},
+        xField: {type: 'string'},
+        yField: {type: 'string'},
+        zField: {type: 'string'},
+        colorField: {type: 'string'},
+        sizeField: {type: 'string'},
+        xScale: {type: 'number', default: 1.0},
+        yScale: {type: 'number', default: 1.0},
+        zScale: {type: 'number', default: 1.0},
+        minSize: {type: 'number', default: 0.1},
+        maxSize: {type: 'number', default: 0.5}
+      },
+      
+      init: function() {
+        // Create 3D scatter plot
+        this.createScatterPlot();
+        
+        // Add axes
+        this.createAxes();
+      },
+      
+      createScatterPlot: function() {
+        const data = this.data.dataPoints;
+        
+        // Find min/max for each dimension for scaling
+        let xMin = Infinity, xMax = -Infinity;
+        let yMin = Infinity, yMax = -Infinity;
+        let zMin = Infinity, zMax = -Infinity;
+        let sizeMin = Infinity, sizeMax = -Infinity;
+        
+        data.forEach(point => {
+          xMin = Math.min(xMin, point[this.data.xField]);
+          xMax = Math.max(xMax, point[this.data.xField]);
+          yMin = Math.min(yMin, point[this.data.yField]);
+          yMax = Math.max(yMax, point[this.data.yField]);
+          zMin = Math.min(zMin, point[this.data.zField]);
+          zMax = Math.max(zMax, point[this.data.zField]);
+          sizeMin = Math.min(sizeMin, point[this.data.sizeField]);
+          sizeMax = Math.max(sizeMax, point[this.data.sizeField]);
+        });
+        
+        // For each data point
+        data.forEach((point, index) => {
+          // Get values from data
+          // Use logarithmic scale for GDP (x-axis) for better distribution
+          const x = this.normalizeGDP(point[this.data.xField], xMin, xMax) * this.data.xScale;
+          const y = this.normalizeValue(point[this.data.yField], yMin, yMax) * this.data.yScale;
+          const z = this.normalizeValue(point[this.data.zField], zMin, zMax) * this.data.zScale;
+          const color = this.getColorForValue(point[this.data.colorField]);
+          const size = this.getSizeForValue(point[this.data.sizeField], sizeMin, sizeMax);
+          
+          // Create point entity
+          const pointEntity = document.createElement('a-sphere');
+          pointEntity.setAttribute('position', {x: x, y: y, z: z});
+          pointEntity.setAttribute('radius', size);
+          pointEntity.setAttribute('color', color);
+          pointEntity.setAttribute('class', 'data-point');
+          
+          // Add material properties for better appearance
+          pointEntity.setAttribute('material', {
+            metalness: 0.2,
+            roughness: 0.5,
+            emissive: color,
+            emissiveIntensity: 0.2
+          });
+          
+          // Store data attributes for interaction
+          pointEntity.setAttribute('data-x', point[this.data.xField]);
+          pointEntity.setAttribute('data-y', point[this.data.yField]);
+          pointEntity.setAttribute('data-z', point[this.data.zField]);
+          pointEntity.setAttribute('data-color', point[this.data.colorField]);
+          pointEntity.setAttribute('data-size', point[this.data.sizeField]);
+          pointEntity.setAttribute('data-index', index);
+          pointEntity.setAttribute('data-name', point.country || `Point ${index}`);
+          
+          // Add event listeners for interaction
+          this.setupPointInteraction(pointEntity, point);
+          
+          // Add to scene
+          this.el.appendChild(pointEntity);
+        });
+        
+        // Store scale values for axes
+        this.scaleInfo = {
+          xMin, xMax, yMin, yMax, zMin, zMax
+        };
+      },
+      
+      setupPointInteraction: function(entity, data) {
+        const tooltip = document.getElementById('data-tooltip');
+        
+        // Mouse/touch enter
+        entity.addEventListener('mouseenter', () => {
+          // Make point appear larger
+          const currentRadius = parseFloat(entity.getAttribute('radius'));
+          entity.setAttribute('radius', currentRadius * 1.3);
+          
+          // Show tooltip with data
+          const tooltipContent = `
+            <strong>${data.country || 'Point'}</strong><br>
+            GDP per Capita: $${Math.round(data[this.data.xField]).toLocaleString()}<br>
+            Life Expectancy: ${data[this.data.yField].toFixed(1)} years<br>
+            Education Index: ${data[this.data.zField].toFixed(2)}<br>
+            Region: ${data[this.data.colorField]}<br>
+            Population: ${Math.round(data[this.data.sizeField]/1000000).toLocaleString()}M
+          `;
+          
+          tooltip.innerHTML = tooltipContent;
+          tooltip.style.display = 'block';
+          
+          // Position tooltip near the point
+          const pointPosition = entity.getAttribute('position');
+          this.updateTooltipPosition(pointPosition);
+        });
+        
+        // Mouse/touch leave
+        entity.addEventListener('mouseleave', () => {
+          // Reset point size
+          const originalSize = this.getSizeForValue(
+            data[this.data.sizeField], 
+            this.sizeMin, 
+            this.sizeMax
+          );
+          entity.setAttribute('radius', originalSize);
+          
+          // Hide tooltip
+          tooltip.style.display = 'none';
+        });
+      },
+      
+      updateTooltipPosition: function(pointPosition) {
+        const tooltip = document.getElementById('data-tooltip');
+        const camera = document.getElementById('camera');
+        
+        // Convert 3D position to screen coordinates
+        // This is a simplified approach - in a real app we'd use proper 3D to 2D projection
+        const cameraWorldPosition = camera.object3D.getWorldPosition();
+        const direction = new THREE.Vector3();
+        direction.subVectors(pointPosition, cameraWorldPosition);
+        
+        // Calculate position on screen
+        const x = (direction.x / Math.abs(direction.z)) * window.innerWidth / 3 + window.innerWidth / 2;
+        const y = -(direction.y / Math.abs(direction.z)) * window.innerHeight / 3 + window.innerHeight / 2;
+        
+        // Apply position
+        tooltip.style.left = `${Math.min(Math.max(x, 70), window.innerWidth - 170)}px`;
+        tooltip.style.top = `${Math.min(Math.max(y - 70, 70), window.innerHeight - 170)}px`;
+      },
+      
+      normalizeGDP: function(value, min, max) {
+        // Use logarithmic scale for GDP to better distribute countries
+        const logMin = Math.log(min);
+        const logMax = Math.log(max);
+        const logValue = Math.log(value);
+        
+        // Map to -5 to 5 range with logarithmic scale
+        return ((logValue - logMin) / (logMax - logMin) * 20 - 10);
+      },
+      
+      normalizeValue: function(value, min, max) {
+        return (value - min) / (max - min) * 10 - 5; // Scale to -5 to 5 range
+      },
+      
+      getColorForValue: function(region) {
+        // Map regions to colors
+        const colorMap = {
+          'Europe': '#4285F4',     // Google Blue
+          'Americas': '#EA4335',   // Google Red
+          'Asia': '#FBBC05',       // Google Yellow
+          'Africa': '#34A853',     // Google Green
+          'Oceania': '#8F44AD'     // Purple
+        };
+        
+        return colorMap[region] || '#CCCCCC';
+      },
+      
+      getSizeForValue: function(value, min, max) {
+        // Scale size between minSize and maxSize based on value
+        const normalized = (value - min) / (max - min);
+        return this.data.minSize + normalized * (this.data.maxSize - this.data.minSize);
+      },
+      
+      createAxes: function() {
+        const axisLength = 6;
+        const { xMin, xMax, yMin, yMax, zMin, zMax } = this.scaleInfo;
+        
+        // Create axes container
+        const axesContainer = document.createElement('a-entity');
+        axesContainer.setAttribute('position', {x: 0, y: 0, z: 0});
+        
+        // X-Axis (red)
+        const xAxis = document.createElement('a-entity');
+        xAxis.setAttribute('line', {
+          start: {x: -axisLength, y: 0, z: 0},
+          end: {x: axisLength, y: 0, z: 0},
+          color: '#FF5555',
+          opacity: 0.8
+        });
+        axesContainer.appendChild(xAxis);
+        
+        // Y-Axis (green)
+        const yAxis = document.createElement('a-entity');
+        yAxis.setAttribute('line', {
+          start: {x: 0, y: -axisLength, z: 0},
+          end: {x: 0, y: axisLength, z: 0},
+          color: '#55FF55',
+          opacity: 0.8
+        });
+        axesContainer.appendChild(yAxis);
+        
+        // Z-Axis (blue)
+        const zAxis = document.createElement('a-entity');
+        zAxis.setAttribute('line', {
+          start: {x: 0, y: 0, z: -axisLength},
+          end: {x: 0, y: 0, z: axisLength},
+          color: '#5555FF',
+          opacity: 0.8
+        });
+        axesContainer.appendChild(zAxis);
+        
+        // Add labels
+        const labelScale = {x: 1.2, y: 1.2, z: 1.2};
+        
+        // X-Axis labels
+        const xLabel = document.createElement('a-text');
+        xLabel.setAttribute('value', 'GDP per Capita →');
+        xLabel.setAttribute('color', '#FF5555');
+        xLabel.setAttribute('position', {x: axisLength + 0.5, y: 0, z: 0});
+        xLabel.setAttribute('scale', labelScale);
+        xLabel.setAttribute('align', 'left');
+        axesContainer.appendChild(xLabel);
+        
+        // Min/max for X
+        const xMinLabel = document.createElement('a-text');
+        xMinLabel.setAttribute('value', `$${Math.round(xMin).toLocaleString()}`);
+        xMinLabel.setAttribute('color', '#FF5555');
+        xMinLabel.setAttribute('position', {x: -axisLength - 0.5, y: 0, z: 0});
+        xMinLabel.setAttribute('scale', {x: 0.8, y: 0.8, z: 0.8});
+        xMinLabel.setAttribute('align', 'right');
+        axesContainer.appendChild(xMinLabel);
+        
+        const xMaxLabel = document.createElement('a-text');
+        xMaxLabel.setAttribute('value', `$${Math.round(xMax).toLocaleString()}`);
+        xMaxLabel.setAttribute('color', '#FF5555');
+        xMaxLabel.setAttribute('position', {x: axisLength - 0.5, y: 0, z: 0});
+        xMaxLabel.setAttribute('scale', {x: 0.8, y: 0.8, z: 0.8});
+        xMaxLabel.setAttribute('align', 'left');
+        axesContainer.appendChild(xMaxLabel);
+        
+        // Y-Axis labels
+        const yLabel = document.createElement('a-text');
+        yLabel.setAttribute('value', '↑ Life Expectancy');
+        yLabel.setAttribute('color', '#55FF55');
+        yLabel.setAttribute('position', {x: 0, y: axisLength + 0.5, z: 0});
+        yLabel.setAttribute('scale', labelScale);
+        yLabel.setAttribute('align', 'center');
+        axesContainer.appendChild(yLabel);
+        
+        // Min/max for Y
+        const yMinLabel = document.createElement('a-text');
+        yMinLabel.setAttribute('value', `${Math.round(yMin)} years`);
+        yMinLabel.setAttribute('color', '#55FF55');
+        yMinLabel.setAttribute('position', {x: 0, y: -axisLength + 0.5, z: 0});
+        yMinLabel.setAttribute('scale', {x: 0.8, y: 0.8, z: 0.8});
+        yMinLabel.setAttribute('align', 'center');
+        axesContainer.appendChild(yMinLabel);
+        
+        const yMaxLabel = document.createElement('a-text');
+        yMaxLabel.setAttribute('value', `${Math.round(yMax)} years`);
+        yMaxLabel.setAttribute('color', '#55FF55');
+        yMaxLabel.setAttribute('position', {x: 0, y: axisLength - 0.5, z: 0});
+        yMaxLabel.setAttribute('scale', {x: 0.8, y: 0.8, z: 0.8});
+        yMaxLabel.setAttribute('align', 'center');
+        axesContainer.appendChild(yMaxLabel);
+        
+        // Z-Axis labels
+        const zLabel = document.createElement('a-text');
+        zLabel.setAttribute('value', 'Education Index →');
+        zLabel.setAttribute('color', '#5555FF');
+        zLabel.setAttribute('position', {x: 0, y: 0, z: axisLength + 0.5});
+        zLabel.setAttribute('scale', labelScale);
+        zLabel.setAttribute('align', 'left');
+        axesContainer.appendChild(zLabel);
+        
+        // Min/max for Z
+        const zMinLabel = document.createElement('a-text');
+        zMinLabel.setAttribute('value', zMin.toFixed(2));
+        zMinLabel.setAttribute('color', '#5555FF');
+        zMinLabel.setAttribute('position', {x: 0, y: 0, z: -axisLength - 0.5});
+        zMinLabel.setAttribute('scale', {x: 0.8, y: 0.8, z: 0.8});
+        zMinLabel.setAttribute('align', 'right');
+        axesContainer.appendChild(zMinLabel);
+        
+        const zMaxLabel = document.createElement('a-text');
+        zMaxLabel.setAttribute('value', zMax.toFixed(2));
+        zMaxLabel.setAttribute('color', '#5555FF');
+        zMaxLabel.setAttribute('position', {x: 0, y: 0, z: axisLength - 0.5});
+        zMaxLabel.setAttribute('scale', {x: 0.8, y: 0.8, z: 0.8});
+        zMaxLabel.setAttribute('align', 'left');
+        axesContainer.appendChild(zMaxLabel);
+        
+        // Add grid
+        const gridEntity = document.createElement('a-entity');
+        gridEntity.setAttribute('position', {x: 0, y: -5, z: 0});
+        gridEntity.setAttribute('rotation', {x: -90, y: 0, z: 0});
+        gridEntity.setAttribute('grid', {
+          width: 20,
+          height: 20,
+          color: '#666666'
+        });
+        axesContainer.appendChild(gridEntity);
+        
+        // Add to scene
+        this.el.appendChild(axesContainer);
+      }
+    });
+    
+    // Device motion navigation
+    
+    // Configuration
+    const config = {
+      // How much tilt is needed for movement (lower values = more sensitive)
+      sensitivity: {
+        x: 2.0,
+        z: 2.0
+      },
+      // Maximum tilt angle that will be used for movement
+      maxTilt: 30,
+      // Limits on movement range
+      limits: {
+        x: { min: -15, max: 15 },
+        y: { min: 0, max: 10 },
+        z: { min: -15, max: 15 }
+      },
+      // Current calibration offsets
+      calibration: {
+        beta: 0,
+        gamma: 0
+      }
+    };
+    
+    // State variables
+    let motionEnabled = false;
+    let currentPosition = { x: 0, y: 1.6, z: 10 }; // Start further back
+    let targetPosition = { x: 0, y: 1.6, z: 10 };
+    let useAbsoluteTilt = true; // Toggle between absolute tilt and relative motion
+    
+    // Store the most recent device orientation values
+    let lastBeta = 0;
+    let lastGamma = 0;
+    
+    // Update our last known orientation values
+    function updateLastOrientation(event) {
+      if (event.beta !== null) lastBeta = event.beta;
+      if (event.gamma !== null) lastGamma = event.gamma;
+    }
+    
+    // DOM References
+    const permissionOverlay = document.getElementById('permission-overlay');
+    const permissionButton = document.getElementById('permission-button');
+    const resetButton = document.getElementById('reset-button');
+    const calibrateButton = document.getElementById('calibrate-button');
+    const indicatorDot = document.getElementById('indicator-dot');
+    const orientationToggle = document.getElementById('orientation-toggle');
+    const controlInstructions = document.getElementById('control-instructions');
+    const rigElement = document.getElementById('rig');
+    const challengeToggle = document.getElementById('challenge-toggle');
+    const challengeOverlay = document.getElementById('challenge-overlay');
+    const closeChallenge = document.getElementById('close-challenge');
+    
+    // Sample Data - Expanded Country development metrics
+    const countryData = [
+      // Europe - 25 countries
+      {country: "Norway", gdpPerCapita: 67390, lifeExpectancy: 82.8, educationIndex: 0.93, region: "Europe", population: 5379000},
+      {country: "Switzerland", gdpPerCapita: 82950, lifeExpectancy: 83.8, educationIndex: 0.89, region: "Europe", population: 8570000},
+      {country: "Ireland", gdpPerCapita: 77450, lifeExpectancy: 82.3, educationIndex: 0.91, region: "Europe", population: 4941000},
+      {country: "Germany", gdpPerCapita: 46760, lifeExpectancy: 81.3, educationIndex: 0.94, region: "Europe", population: 83241000},
+      {country: "France", gdpPerCapita: 40500, lifeExpectancy: 82.5, educationIndex: 0.87, region: "Europe", population: 65274000},
+      {country: "United Kingdom", gdpPerCapita: 42370, lifeExpectancy: 81.3, educationIndex: 0.92, region: "Europe", population: 67886000},
+      {country: "Italy", gdpPerCapita: 33190, lifeExpectancy: 83.6, educationIndex: 0.81, region: "Europe", population: 60461000},
+      {country: "Spain", gdpPerCapita: 27220, lifeExpectancy: 83.6, educationIndex: 0.83, region: "Europe", population: 47351000},
+      {country: "Poland", gdpPerCapita: 15200, lifeExpectancy: 78.7, educationIndex: 0.87, region: "Europe", population: 37847000},
+      {country: "Sweden", gdpPerCapita: 52190, lifeExpectancy: 82.8, educationIndex: 0.93, region: "Europe", population: 10353000},
+      {country: "Denmark", gdpPerCapita: 58440, lifeExpectancy: 81.1, educationIndex: 0.92, region: "Europe", population: 5822000},
+      {country: "Netherlands", gdpPerCapita: 52640, lifeExpectancy: 82.3, educationIndex: 0.93, region: "Europe", population: 17441000},
+      {country: "Finland", gdpPerCapita: 47170, lifeExpectancy: 81.9, educationIndex: 0.92, region: "Europe", population: 5531000},
+      {country: "Belgium", gdpPerCapita: 45710, lifeExpectancy: 81.9, educationIndex: 0.90, region: "Europe", population: 11590000},
+      {country: "Austria", gdpPerCapita: 49670, lifeExpectancy: 81.9, educationIndex: 0.87, region: "Europe", population: 9006000},
+      {country: "Portugal", gdpPerCapita: 22080, lifeExpectancy: 82.1, educationIndex: 0.81, region: "Europe", population: 10196000},
+      {country: "Greece", gdpPerCapita: 19640, lifeExpectancy: 82.2, educationIndex: 0.83, region: "Europe", population: 10423000},
+      {country: "Czech Republic", gdpPerCapita: 22850, lifeExpectancy: 79.4, educationIndex: 0.89, region: "Europe", population: 10709000},
+      {country: "Romania", gdpPerCapita: 12920, lifeExpectancy: 75.9, educationIndex: 0.78, region: "Europe", population: 19237000},
+      {country: "Hungary", gdpPerCapita: 16920, lifeExpectancy: 76.7, educationIndex: 0.82, region: "Europe", population: 9660000},
+      {country: "Slovakia", gdpPerCapita: 19270, lifeExpectancy: 77.5, educationIndex: 0.83, region: "Europe", population: 5459000},
+      {country: "Bulgaria", gdpPerCapita: 10230, lifeExpectancy: 75.0, educationIndex: 0.78, region: "Europe", population: 6951000},
+      {country: "Croatia", gdpPerCapita: 15130, lifeExpectancy: 78.3, educationIndex: 0.80, region: "Europe", population: 4047000},
+      {country: "Latvia", gdpPerCapita: 19020, lifeExpectancy: 75.3, educationIndex: 0.87, region: "Europe", population: 1886000},
+      {country: "Estonia", gdpPerCapita: 23660, lifeExpectancy: 78.6, educationIndex: 0.88, region: "Europe", population: 1327000},
+      
+      // Americas - 20 countries
+      {country: "United States", gdpPerCapita: 63690, lifeExpectancy: 78.9, educationIndex: 0.90, region: "Americas", population: 331003000},
+      {country: "Canada", gdpPerCapita: 46370, lifeExpectancy: 82.4, educationIndex: 0.89, region: "Americas", population: 38011000},
+      {country: "Mexico", gdpPerCapita: 9430, lifeExpectancy: 75.1, educationIndex: 0.70, region: "Americas", population: 128933000},
+      {country: "Brazil", gdpPerCapita: 8550, lifeExpectancy: 75.9, educationIndex: 0.69, region: "Americas", population: 212559000},
+      {country: "Argentina", gdpPerCapita: 9930, lifeExpectancy: 76.7, educationIndex: 0.83, region: "Americas", population: 45196000},
+      {country: "Colombia", gdpPerCapita: 6580, lifeExpectancy: 77.3, educationIndex: 0.69, region: "Americas", population: 50883000},
+      {country: "Chile", gdpPerCapita: 14670, lifeExpectancy: 80.2, educationIndex: 0.80, region: "Americas", population: 19116000},
+      {country: "Peru", gdpPerCapita: 6530, lifeExpectancy: 76.7, educationIndex: 0.71, region: "Americas", population: 32972000},
+      {country: "Venezuela", gdpPerCapita: 3100, lifeExpectancy: 72.1, educationIndex: 0.74, region: "Americas", population: 28436000},
+      {country: "Ecuador", gdpPerCapita: 6090, lifeExpectancy: 77.0, educationIndex: 0.73, region: "Americas", population: 17643000},
+      {country: "Bolivia", gdpPerCapita: 3640, lifeExpectancy: 71.5, educationIndex: 0.70, region: "Americas", population: 11673000},
+      {country: "Uruguay", gdpPerCapita: 16870, lifeExpectancy: 77.9, educationIndex: 0.78, region: "Americas", population: 3474000},
+      {country: "Paraguay", gdpPerCapita: 5670, lifeExpectancy: 74.3, educationIndex: 0.68, region: "Americas", population: 7133000},
+      {country: "Costa Rica", gdpPerCapita: 12480, lifeExpectancy: 80.3, educationIndex: 0.76, region: "Americas", population: 5094000},
+      {country: "Panama", gdpPerCapita: 15890, lifeExpectancy: 78.5, educationIndex: 0.73, region: "Americas", population: 4315000},
+      {country: "Dominican Republic", gdpPerCapita: 8090, lifeExpectancy: 74.0, educationIndex: 0.69, region: "Americas", population: 10848000},
+      {country: "Honduras", gdpPerCapita: 2540, lifeExpectancy: 75.3, educationIndex: 0.60, region: "Americas", population: 9905000},
+      {country: "Guatemala", gdpPerCapita: 4610, lifeExpectancy: 74.3, educationIndex: 0.55, region: "Americas", population: 16859000},
+      {country: "Jamaica", gdpPerCapita: 5320, lifeExpectancy: 74.5, educationIndex: 0.71, region: "Americas", population: 2961000},
+      {country: "Trinidad and Tobago", gdpPerCapita: 16240, lifeExpectancy: 73.5, educationIndex: 0.74, region: "Americas", population: 1399000},
+      
+      // Asia - 25 countries
+      {country: "Japan", gdpPerCapita: 41690, lifeExpectancy: 84.6, educationIndex: 0.85, region: "Asia", population: 126476000},
+      {country: "South Korea", gdpPerCapita: 31380, lifeExpectancy: 83.0, educationIndex: 0.87, region: "Asia", population: 51269000},
+      {country: "China", gdpPerCapita: 10410, lifeExpectancy: 77.4, educationIndex: 0.65, region: "Asia", population: 1402112000},
+      {country: "India", gdpPerCapita: 1920, lifeExpectancy: 69.7, educationIndex: 0.55, region: "Asia", population: 1380004000},
+      {country: "Indonesia", gdpPerCapita: 4050, lifeExpectancy: 71.7, educationIndex: 0.63, region: "Asia", population: 273524000},
+      {country: "Thailand", gdpPerCapita: 7260, lifeExpectancy: 77.2, educationIndex: 0.66, region: "Asia", population: 69800000},
+      {country: "Singapore", gdpPerCapita: 59590, lifeExpectancy: 83.6, educationIndex: 0.87, region: "Asia", population: 5686000},
+      {country: "Malaysia", gdpPerCapita: 10590, lifeExpectancy: 76.2, educationIndex: 0.72, region: "Asia", population: 32366000},
+      {country: "Vietnam", gdpPerCapita: 2800, lifeExpectancy: 75.4, educationIndex: 0.64, region: "Asia", population: 97339000},
+      {country: "Philippines", gdpPerCapita: 3330, lifeExpectancy: 71.2, educationIndex: 0.66, region: "Asia", population: 109581000},
+      {country: "Bangladesh", gdpPerCapita: 1940, lifeExpectancy: 72.6, educationIndex: 0.52, region: "Asia", population: 164689000},
+      {country: "Pakistan", gdpPerCapita: 1530, lifeExpectancy: 67.3, educationIndex: 0.41, region: "Asia", population: 220892000},
+      {country: "Saudi Arabia", gdpPerCapita: 22700, lifeExpectancy: 75.1, educationIndex: 0.74, region: "Asia", population: 34814000},
+      {country: "United Arab Emirates", gdpPerCapita: 40710, lifeExpectancy: 78.0, educationIndex: 0.77, region: "Asia", population: 9890000},
+      {country: "Israel", gdpPerCapita: 41560, lifeExpectancy: 83.0, educationIndex: 0.88, region: "Asia", population: 8656000},
+      {country: "Turkey", gdpPerCapita: 9370, lifeExpectancy: 77.7, educationIndex: 0.72, region: "Asia", population: 84339000},
+      {country: "Kazakhstan", gdpPerCapita: 8710, lifeExpectancy: 73.6, educationIndex: 0.81, region: "Asia", population: 18776000},
+      {country: "Uzbekistan", gdpPerCapita: 1670, lifeExpectancy: 71.7, educationIndex: 0.71, region: "Asia", population: 33469000},
+      {country: "Sri Lanka", gdpPerCapita: 3830, lifeExpectancy: 77.0, educationIndex: 0.75, region: "Asia", population: 21919000},
+      {country: "Nepal", gdpPerCapita: 1090, lifeExpectancy: 70.8, educationIndex: 0.50, region: "Asia", population: 29137000},
+      {country: "Myanmar", gdpPerCapita: 1260, lifeExpectancy: 67.1, educationIndex: 0.48, region: "Asia", population: 54410000},
+      {country: "Afghanistan", gdpPerCapita: 520, lifeExpectancy: 64.8, educationIndex: 0.41, region: "Asia", population: 38928000},
+      {country: "Mongolia", gdpPerCapita: 3830, lifeExpectancy: 69.9, educationIndex: 0.73, region: "Asia", population: 3278000},
+      {country: "Laos", gdpPerCapita: 2620, lifeExpectancy: 67.9, educationIndex: 0.53, region: "Asia", population: 7276000},
+      {country: "Cambodia", gdpPerCapita: 1530, lifeExpectancy: 69.8, educationIndex: 0.49, region: "Asia", population: 16719000},
+      
+      // Africa - 25 countries
+      {country: "South Africa", gdpPerCapita: 6440, lifeExpectancy: 64.1, educationIndex: 0.71, region: "Africa", population: 59309000},
+      {country: "Egypt", gdpPerCapita: 3020, lifeExpectancy: 72.0, educationIndex: 0.61, region: "Africa", population: 102334000},
+      {country: "Nigeria", gdpPerCapita: 2030, lifeExpectancy: 54.7, educationIndex: 0.51, region: "Africa", population: 206140000},
+      {country: "Kenya", gdpPerCapita: 1840, lifeExpectancy: 66.7, educationIndex: 0.55, region: "Africa", population: 53771000},
+      {country: "Ethiopia", gdpPerCapita: 890, lifeExpectancy: 66.6, educationIndex: 0.34, region: "Africa", population: 114964000},
+      {country: "Ghana", gdpPerCapita: 2220, lifeExpectancy: 64.1, educationIndex: 0.59, region: "Africa", population: 31073000},
+      {country: "Morocco", gdpPerCapita: 3030, lifeExpectancy: 76.7, educationIndex: 0.54, region: "Africa", population: 36911000},
+      {country: "Algeria", gdpPerCapita: 3940, lifeExpectancy: 76.9, educationIndex: 0.65, region: "Africa", population: 43851000},
+      {country: "Tunisia", gdpPerCapita: 3500, lifeExpectancy: 76.7, educationIndex: 0.67, region: "Africa", population: 11819000},
+      {country: "Libya", gdpPerCapita: 6330, lifeExpectancy: 72.9, educationIndex: 0.62, region: "Africa", population: 6871000},
+      {country: "Angola", gdpPerCapita: 3430, lifeExpectancy: 61.1, educationIndex: 0.50, region: "Africa", population: 32866000},
+      {country: "Tanzania", gdpPerCapita: 1080, lifeExpectancy: 65.5, educationIndex: 0.48, region: "Africa", population: 59734000},
+      {country: "Ivory Coast", gdpPerCapita: 2290, lifeExpectancy: 57.8, educationIndex: 0.47, region: "Africa", population: 26378000},
+      {country: "Cameroon", gdpPerCapita: 1500, lifeExpectancy: 59.3, educationIndex: 0.55, region: "Africa", population: 26546000},
+      {country: "Uganda", gdpPerCapita: 770, lifeExpectancy: 63.4, educationIndex: 0.53, region: "Africa", population: 45741000},
+      {country: "Senegal", gdpPerCapita: 1450, lifeExpectancy: 67.9, educationIndex: 0.42, region: "Africa", population: 16744000},
+      {country: "Botswana", gdpPerCapita: 7410, lifeExpectancy: 69.6, educationIndex: 0.71, region: "Africa", population: 2352000},
+      {country: "Rwanda", gdpPerCapita: 820, lifeExpectancy: 69.0, educationIndex: 0.48, region: "Africa", population: 12952000},
+      {country: "Mali", gdpPerCapita: 870, lifeExpectancy: 59.3, educationIndex: 0.38, region: "Africa", population: 20251000},
+      {country: "Zambia", gdpPerCapita: 1430, lifeExpectancy: 63.9, educationIndex: 0.61, region: "Africa", population: 18384000},
+      {country: "Zimbabwe", gdpPerCapita: 1270, lifeExpectancy: 61.5, educationIndex: 0.58, region: "Africa", population: 14863000},
+      {country: "Namibia", gdpPerCapita: 4960, lifeExpectancy: 63.7, educationIndex: 0.63, region: "Africa", population: 2495000},
+      {country: "Somalia", gdpPerCapita: 310, lifeExpectancy: 57.4, educationIndex: 0.29, region: "Africa", population: 15893000},
+      {country: "Sudan", gdpPerCapita: 790, lifeExpectancy: 65.3, educationIndex: 0.35, region: "Africa", population: 43849000},
+      {country: "Madagascar", gdpPerCapita: 520, lifeExpectancy: 67.0, educationIndex: 0.49, region: "Africa", population: 27691000},
+      
+      // Oceania - 10 countries
+      {country: "Australia", gdpPerCapita: 54910, lifeExpectancy: 83.4, educationIndex: 0.92, region: "Oceania", population: 25500000},
+      {country: "New Zealand", gdpPerCapita: 41070, lifeExpectancy: 82.3, educationIndex: 0.92, region: "Oceania", population: 4822000},
+      {country: "Papua New Guinea", gdpPerCapita: 2750, lifeExpectancy: 64.5, educationIndex: 0.45, region: "Oceania", population: 8947000},
+      {country: "Fiji", gdpPerCapita: 5860, lifeExpectancy: 67.4, educationIndex: 0.77, region: "Oceania", population: 896000},
+      {country: "Solomon Islands", gdpPerCapita: 2350, lifeExpectancy: 73.0, educationIndex: 0.51, region: "Oceania", population: 687000},
+      {country: "Vanuatu", gdpPerCapita: 3130, lifeExpectancy: 70.5, educationIndex: 0.57, region: "Oceania", population: 307000},
+      {country: "Samoa", gdpPerCapita: 4130, lifeExpectancy: 73.3, educationIndex: 0.72, region: "Oceania", population: 198000},
+      {country: "Tonga", gdpPerCapita: 4890, lifeExpectancy: 70.9, educationIndex: 0.79, region: "Oceania", population: 105000},
+      {country: "Micronesia", gdpPerCapita: 3400, lifeExpectancy: 67.9, educationIndex: 0.67, region: "Oceania", population: 115000},
+      {country: "Kiribati", gdpPerCapita: 1670, lifeExpectancy: 68.4, educationIndex: 0.62, region: "Oceania", population: 119000}
+    ];
+    
+    // Initialize the application
+    document.addEventListener('DOMContentLoaded', function() {
+      // Request device motion permission when button is clicked
+      permissionButton.addEventListener('click', requestMotionPermission);
+      
+      // Use click instead of touchstart/touchend to avoid accidental double triggers
+      resetButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        resetPosition();
+      });
+      
+      calibrateButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        calibrateOrientation();
+      });
+      
+      // Orientation mode toggle
+      orientationToggle.addEventListener('click', function(e) {
+        e.preventDefault();
+        toggleNavigationMode();
+      });
+      
+      // Challenge overlay toggle
+      challengeToggle.addEventListener('click', function() {
+        challengeOverlay.classList.add('visible');
+      });
+      
+      closeChallenge.addEventListener('click', function() {
+        challengeOverlay.classList.remove('visible');
+      });
+      
+      // Wait for scene to be loaded before creating visualization
+      document.querySelector('a-scene').addEventListener('loaded', function() {
+        createVisualization();
+        
+        // Check if DeviceOrientationEvent is available
+        if (window.DeviceOrientationEvent) {
+          console.log('Device orientation is supported');
+        } else {
+          console.log('Device orientation not supported');
+          showUnsupportedMessage();
+        }
+      });
+    });
+    
+          // Create the 3D visualization
+    function createVisualization() {
+      const visualization = document.getElementById('visualization');
+      
+      // Add the scatter plot component
+      visualization.setAttribute('scatter-plot-3d', {
+        dataPoints: countryData,
+        xField: 'gdpPerCapita',
+        yField: 'lifeExpectancy',
+        zField: 'educationIndex',
+        colorField: 'region',
+        sizeField: 'population',
+        xScale: 1.5,  // Increase X scale to further spread out points
+        yScale: 1.2,  // Slightly increase Y scale
+        zScale: 12,   // Increased from 10 to 12 for better Z distribution
+        minSize: 0.15,
+        maxSize: 0.6
+      });
+    }
+    
+    // Toggle between navigation modes
+    function toggleNavigationMode() {
+      useAbsoluteTilt = !useAbsoluteTilt;
+      
+      if (useAbsoluteTilt) {
+        orientationToggle.textContent = "Using Tilt Mode";
+        controlInstructions.textContent = "Tilt device to navigate through the data space";
+      } else {
+        orientationToggle.textContent = "Using Motion Mode";
+        controlInstructions.textContent = "Move device like a window into the data space";
+        // Reset calibration for motion mode
+        calibrateOrientation();
+      }
+    }
+    
+    // Request motion sensor permissions
+    function requestMotionPermission() {
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        // iOS 13+ requires explicit permission
+        DeviceOrientationEvent.requestPermission()
+          .then(permissionState => {
+            if (permissionState === 'granted') {
+              enableMotionControls();
+            } else {
+              alert('Motion sensor permission denied');
+            }
+          })
+          .catch(console.error);
+      } else {
+        // Non-iOS devices or older iOS versions
+        enableMotionControls();
+      }
+    }
+    
+    // Enable motion controls and hide the permission overlay
+    function enableMotionControls() {
+      motionEnabled = true;
+      permissionOverlay.style.display = 'none';
+      
+      // Add the device orientation event listener
+      window.addEventListener('deviceorientation', handleOrientation);
+      
+      // Start the update loop
+      requestAnimationFrame(updateLoop);
+      
+      console.log('Motion controls enabled');
+    }
+    
+    // Handle device orientation events
+    function handleOrientation(event) {
+      if (!motionEnabled) return;
+      
+      // Get the beta (front-to-back tilt) and gamma (left-to-right tilt) values
+      const beta = event.beta || 0;  // front-to-back tilt in degrees
+      const gamma = event.gamma || 0; // left-to-right tilt in degrees
+      
+      // Update our stored last orientation values
+      updateLastOrientation(event);
+      
+      if (useAbsoluteTilt) {
+        // Absolute tilt mode - map device angles directly to position
+        handleTiltMode(beta, gamma);
+      } else {
+        // Motion mode - use relative changes for movement
+        handleMotionMode(beta, gamma);
+      }
+    }
+    
+    // Handle tilt-based navigation (absolute angles)
+    function handleTiltMode(beta, gamma) {
+      // Get adjusted beta and gamma values
+      const adjustedBeta = beta - config.calibration.beta;
+      const adjustedGamma = gamma - config.calibration.gamma;
+      
+      // Update the indicator dot to show tilt direction
+      updateIndicator(adjustedGamma, adjustedBeta);
+      
+      // X movement (left-right tilt)
+      if (Math.abs(adjustedGamma) > 5) { // Small deadzone to prevent drift
+        const tiltPercentX = Math.min(Math.abs(adjustedGamma), config.maxTilt) / config.maxTilt;
+        const moveX = (adjustedGamma > 0 ? 1 : -1) * tiltPercentX * config.sensitivity.x;
+        targetPosition.x = Math.max(config.limits.x.min, Math.min(config.limits.x.max, currentPosition.x + moveX * 0.05));
+      }
+      
+      // Z movement (forward-backward tilt)
+      // We use a neutral position of 45 degrees for forward/back tilt
+      const neutralBeta = 45;
+      if (Math.abs(adjustedBeta - neutralBeta) > 5) { // Small deadzone centered around neutral
+        const tiltZ = adjustedBeta - neutralBeta;
+        const tiltPercentZ = Math.min(Math.abs(tiltZ), config.maxTilt) / config.maxTilt;
+        const moveZ = (tiltZ > 0 ? 1 : -1) * tiltPercentZ * config.sensitivity.z;
+        targetPosition.z = Math.max(config.limits.z.min, Math.min(config.limits.z.max, currentPosition.z + moveZ * 0.05));
+      }
+    }
+    
+    // Handle motion-based navigation (relative movement)
+    function handleMotionMode(beta, gamma) {
+      // Get adjusted beta and gamma values (relative changes)
+      const adjustedBeta = beta - config.calibration.beta;
+      const adjustedGamma = gamma - config.calibration.gamma;
+      
+      // Update the indicator dot to show tilt direction
+      updateIndicator(adjustedGamma, adjustedBeta);
+      
+      // Map the angle differences directly to movement speeds
+      const moveX = adjustedGamma * 0.05;
+      const moveZ = adjustedBeta * 0.05;
+      
+      // Apply movement with limits
+      targetPosition.x = Math.max(config.limits.x.min, Math.min(config.limits.x.max, targetPosition.x + moveX * 0.05));
+      targetPosition.z = Math.max(config.limits.z.min, Math.min(config.limits.z.max, targetPosition.z - moveZ * 0.05));
+      
+      // Update calibration continuously to make motion relative
+      config.calibration.beta = beta;
+      config.calibration.gamma = gamma;
+    }
+    
+    // Update the position indicator dot
+    function updateIndicator(xAngle, yAngle) {
+      // Normalize beta and gamma to -1 to 1 range
+      let normalizedX, normalizedY;
+      
+      if (useAbsoluteTilt) {
+        // For tilt mode, we use gamma for X-axis
+        normalizedX = Math.min(Math.max(xAngle / config.maxTilt, -1), 1);
+        
+        // For tilt mode, beta should be relative to neutral position (45°)
+        const neutralBeta = 45;
+        normalizedY = Math.min(Math.max((yAngle - neutralBeta) / config.maxTilt, -1), 1);
+      } else {
+        // For motion mode, use smaller range for better visual feedback
+        normalizedX = Math.min(Math.max(xAngle / 10, -1), 1);
+        normalizedY = Math.min(Math.max(yAngle / 10, -1), 1);
+      }
+      
+      // Update dot position (using scale to keep within the circle)
+      const radius = 30; // Max radius in pixels
+      const x = normalizedX * radius;
+      const y = normalizedY * radius;
+      
+      indicatorDot.style.transform = `translate(${x}px, ${y}px)`;
+      
+      // Change color based on intensity
+      const intensity = Math.min(1, Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY));
+      indicatorDot.style.backgroundColor = `rgba(255, 64, 129, ${0.5 + intensity * 0.5})`;
+      indicatorDot.style.width = `${16 + intensity * 8}px`;
+      indicatorDot.style.height = `${16 + intensity * 8}px`;
+    }
+    
+    // Main update loop
+    function updateLoop() {
+      // Smooth camera movement
+      currentPosition.x += (targetPosition.x - currentPosition.x) * 0.1;
+      currentPosition.z += (targetPosition.z - currentPosition.z) * 0.1;
+      
+      // Apply position to rig
+      rigElement.setAttribute('position', `${currentPosition.x} ${currentPosition.y} ${currentPosition.z}`);
+      
+      // Continue the loop
+      requestAnimationFrame(updateLoop);
+    }
+    
+    // Reset position to center
+    function resetPosition() {
+      targetPosition = { x: 0, y: 1.6, z: 10 };
+      console.log('Position reset');
+      
+      // Visual feedback
+      resetButton.style.backgroundColor = '#4CAF50';
+      resetButton.textContent = 'Reset!';
+      setTimeout(() => {
+        resetButton.style.backgroundColor = '#ff4081';
+        resetButton.textContent = 'Reset Position';
+      }, 1000);
+    }
+    
+    // Calibrate the orientation to current device position
+    function calibrateOrientation() {
+      // Use the most recent orientation values for immediate calibration
+      config.calibration.beta = lastBeta;
+      config.calibration.gamma = lastGamma;
+      
+      console.log(`Calibrated: beta=${config.calibration.beta}, gamma=${config.calibration.gamma}`);
+      
+      // Reset the indicator dot
+      indicatorDot.style.transform = 'translate(0px, 0px)';
+      
+      // Show visual feedback that calibration occurred
+      const originalColor = calibrateButton.style.backgroundColor;
+      calibrateButton.style.backgroundColor = '#4CAF50'; // Green
+      calibrateButton.textContent = 'Calibrated!';
+      
+      // Return to original state after a short delay
+      setTimeout(() => {
+        calibrateButton.style.backgroundColor = originalColor;
+        calibrateButton.textContent = 'Calibrate';
+      }, 1000);
+    }
+    
+    // Show message if device doesn't support orientation
+    function showUnsupportedMessage() {
+      permissionOverlay.innerHTML = `
+        <h2>Device Not Supported</h2>
+        <p>Your device doesn't support motion sensors, or they're not accessible in this browser. Please try using a mobile device with a modern browser.</p>
+        <p>As a fallback, you can still navigate using touch/mouse controls.</p>
+        <button class="permission-button" onclick="enableFallbackControls()">Continue with Touch Controls</button>
+      `;
+    }
+    
+    // Enable fallback controls for unsupported devices
+    function enableFallbackControls() {
+      permissionOverlay.style.display = 'none';
+      
+      // Enable regular A-Frame controls
+      const camera = document.getElementById('camera');
+      camera.setAttribute('wasd-controls', 'enabled: true');
+      camera.setAttribute('look-controls', 'enabled: true');
+      
+      console.log('Using fallback touch/mouse controls');
+    }
+  </script>
+</body>
+</html>
