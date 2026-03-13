@@ -66,7 +66,11 @@
       { region: "South", value: 85 },
       { region: "East", value: 65 },
       { region: "West", value: 72 },
-      { region: "Central", value: 58 }
+      { region: "Central", value: 58 },
+      { region: "Europe", value: 32 },
+      { region: "Sahara", value: 95 }
+
+
     ];
     
     // Function to create visualization from data
@@ -121,7 +125,8 @@
         const tempNormalized = item.value / 100;
         const r = Math.floor(tempNormalized * 255);
         const b = Math.floor((1 - tempNormalized) * 255);
-        bar.setAttribute('color', `rgb(${r}, 100, ${b})`);
+        const g = 100;
+        bar.setAttribute('color', `rgb(${r}, ${g}, ${b})`);
         
         // Add interactivity
         bar.setAttribute('class', 'interactive');

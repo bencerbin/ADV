@@ -169,7 +169,7 @@
         const values = data.map(item => item[key]);
         const min = Math.min(...values);
         const max = Math.max(...values);
-        return values.map(val => ((val - min) / (max - min)) * 4);
+        return values.map(val => ((val - min) / (max - min)) * 8);
       }
       
       // Normalize each dimension
@@ -188,10 +188,11 @@
         const sphere = document.createElement('a-sphere');
         
         // Position calculation (subtract 2 to center around origin)
+        
         sphere.setAttribute('position', `${normalizedPrices[index] - 2} ${normalizedUnits[index]} ${normalizedRatings[index] - 2}`);
         
         // Styling
-        sphere.setAttribute('radius', '0.1');
+        sphere.setAttribute('radius', 0.05 + normalizedUnits[index] * 0.05);
         sphere.setAttribute('color', product.color);
         sphere.classList.add('datapoint');
         
@@ -211,10 +212,13 @@
           const info = this.getAttribute('data-info');
           infoText.setAttribute('value', info);
           infoPanel.setAttribute('visible', true);
+          sphere.setAttribute('color', '#FFFFFF');
         });
         
         sphere.addEventListener('mouseleave', function() {
           infoPanel.setAttribute('visible', false);
+          sphere.setAttribute('color', product.color);
+
         });
         
         // Add to container
